@@ -66,10 +66,6 @@
           <mainClass>com.caslanqa.ytdownload.App</mainClass>
           <input>${project.build.directory}</input>
           <mainJar>YTDownloader.jar</mainJar>
-          <arguments>
-            <argument>--icon</argument>
-            <argument>icons/ytdownload.png</argument>
-          </arguments>
           <destination>${project.build.directory}/installer</destination>
         </configuration>
       </plugin>
@@ -134,9 +130,9 @@
     </profile>
   </profiles>
   <properties>
-    <maven.compiler.target>21</maven.compiler.target>
-    <maven.compiler.source>21</maven.compiler.source>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javafx.version>21.0.4</javafx.version>
+    <maven.compiler.target>21</maven.compiler.target>
+    <maven.compiler.source>21</maven.compiler.source>
   </properties>
 </project>

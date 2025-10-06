@@ -2,10 +2,11 @@ package com.caslanqa.Utils;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.function.Consumer;
 
 public class Yt_DlpUtils {
 
-    public static boolean downloadAsMp3(String playlistUrl, String outputDir) {
+    public static boolean downloadAsMp3(String playlistUrl, String outputDir, Consumer<Double> progressCallback) {
         try {
             String[] command = {
                     "yt-dlp",
@@ -26,22 +27,26 @@ public class Yt_DlpUtils {
                 if (line.contains("Downloading item")||line.contains("Extracting URL")) {
                     System.out.println(line);
                 }
+                if (line.contains("[download]")) {
+                    Double percent = parseProgress(line);
+                    if (percent != null && progressCallback != null) {
+                        progressCallback.accept(percent / 100.0);
+                    }
+                }
             }
             return process.waitFor() == 0;
 
         } catch (Exception e) {
-            boolean flag = false;
             installYtDlp(e);
-            flag = downloadAsMp3(playlistUrl, outputDir);
-            return flag;
+            return downloadAsMp3(playlistUrl, outputDir, progressCallback);
         }
     }
 
-    public static boolean downloadAsVideoMp4(String playlistUrl, String outputDir) {
+    public static boolean downloadAsVideoMp4(String playlistUrl, String outputDir, Consumer<Double> progressCallback) {
         try {
             String[] command = {
                     "yt-dlp",
-                    "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]",
+                    "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]",
                     "--merge-output-format", "mp4",
                     "-o", outputDir + "/%(title)s.%(ext)s",
                     playlistUrl
@@ -55,21 +60,22 @@ public class Yt_DlpUtils {
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.contains("Downloading item")||line.contains("Extracting URL")) {
-                    System.out.println(line);
+                if (line.contains("[download]")) {
+                    Double percent = parseProgress(line);
+                    if (percent != null && progressCallback != null) {
+                        progressCallback.accept(percent / 100.0);
+                    }
                 }
             }
             return process.waitFor() == 0;
 
         } catch (Exception e) {
-            boolean flag = false;
             installYtDlp(e);
-            flag = downloadAsMp3(playlistUrl, outputDir);
-            return flag;
+            return downloadAsVideoMp4(playlistUrl, outputDir, progressCallback);
         }
     }
 
-    public static boolean downloadAsVideoWebm(String playlistUrl, String outputDir) {
+    public static boolean downloadAsVideoWebm(String playlistUrl, String outputDir, Consumer<Double> progressCallback) {
         try {
             String[] command = {
                     "yt-dlp",
@@ -85,17 +91,18 @@ public class Yt_DlpUtils {
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.contains("Downloading item")||line.contains("Extracting URL")) {
-                    System.out.println(line);
+                if (line.contains("[download]")) {
+                    Double percent = parseProgress(line);
+                    if (percent != null && progressCallback != null) {
+                        progressCallback.accept(percent / 100.0);
+                    }
                 }
             }
             return process.waitFor() == 0;
 
         } catch (Exception e) {
-            boolean flag = false;
             installYtDlp(e);
-            flag = downloadAsMp3(playlistUrl, outputDir);
-            return flag;
+            return downloadAsVideoWebm(playlistUrl, outputDir, progressCallback);
         }
     }
 
@@ -113,6 +120,22 @@ public class Yt_DlpUtils {
             Alerts.showErrorAlert("An error occurred during yt-dlp installation: " + ex.getMessage());
             return false;
         }
+    }
+
+    private static Double parseProgress(String line) {
+        // Example line: [download]  42.3% of ...
+        int idx = line.indexOf("% of");
+        if (idx > 0) {
+            String sub = line.substring(0, idx);
+            int start = sub.lastIndexOf("[");
+            if (start >= 0) {
+                String percentStr = sub.substring(sub.lastIndexOf(" ") + 1).replace("%", "").trim();
+                try {
+                    return Double.parseDouble(percentStr);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return null;
     }
 
 }
