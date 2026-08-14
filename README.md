@@ -240,13 +240,21 @@ docs/PLAN.md             design plan and decision log (Turkish)
 
 ### Lockfile note
 
-npm 11.16 records platform-specific optional packages (esbuild, rollup) in the lockfile as
-`extraneous` instead of `optional`, which makes `npm ci` fail with `EBADPLATFORM` on other
-platforms. Regenerate the lockfile with a stock npm 10 instead:
+`package.json` pins `npm@10.9.2` through the `packageManager` field, because npm 11.16
+mangles the lockfile: it records platform-specific optional packages (esbuild, rollup) as
+`extraneous` instead of `optional`, or drops them entirely. Either way `npm ci` then fails on
+other platforms with `EBADPLATFORM` or `Missing … from lock file`.
+
+If the lockfile has to be regenerated, delete `node_modules` as well and use npm 10 — keeping
+an installed tree around makes npm record only the current platform's optional packages:
 
 ```bash
-npx npm@10.9.2 install --package-lock-only
+rm -rf node_modules package-lock.json
+npx npm@10.9.2 install
 ```
+
+Sanity check afterwards: the lockfile should contain more than one `@rollup/rollup-*` and
+`@esbuild/*` entry, all marked `"optional": true`.
 
 ## Testing
 
