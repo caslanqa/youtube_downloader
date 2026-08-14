@@ -1,9 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Format, JobRequest, MediaInfo, Settings } from '../../shared/types';
 import { useT } from '../i18n';
 import { useProbe } from '../useProbe';
 import { BUTTON_PRIMARY, BUTTON_QUIET, FIELD, LABEL, PANEL } from '../ui';
 import { ProbePreview } from './ProbePreview';
+
+const ALBUM_NAME_MAX = 80;
+
+/**
+ * Probe'dan gelen başlığı klasör adı olarak önerir: yol ayırıcıları ve dosya
+ * sistemlerinde sorun çıkaran karakterler elenir, uzun başlıklar kısaltılır.
+ * Main süreci ayrıca kendi doğrulamasını yapıyor (validate.ts) — bu yalnızca öneri.
+ */
+function suggestAlbumName(title: string): string {
+  return title
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, ALBUM_NAME_MAX)
+    .trim();
+}
 
 export function DownloadForm({
   settings,
@@ -17,8 +33,15 @@ export function DownloadForm({
   const t = useT();
   const [url, setUrl] = useState('');
   const [albumName, setAlbumName] = useState('');
+  // Kullanıcı alana bir kez dokunduysa otomatik doldurma onu ezmez.
+  const [albumEdited, setAlbumEdited] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { info, probing, probeError } = useProbe(url);
+
+  useEffect(() => {
+    if (albumEdited || !info) return;
+    setAlbumName(suggestAlbumName(info.title));
+  }, [info, albumEdited]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -35,6 +58,7 @@ export function DownloadForm({
       // Form temizlenir: kullanıcı beklemeden ikinci bağlantıyı girebilir (docs/PLAN.md §8).
       setUrl('');
       setAlbumName('');
+      setAlbumEdited(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -84,7 +108,10 @@ export function DownloadForm({
             id="album"
             type="text"
             value={albumName}
-            onChange={(event) => setAlbumName(event.target.value)}
+            onChange={(event) => {
+              setAlbumEdited(true);
+              setAlbumName(event.target.value);
+            }}
             placeholder={t('albumPlaceholder')}
             aria-describedby="album-hint"
             className={FIELD}

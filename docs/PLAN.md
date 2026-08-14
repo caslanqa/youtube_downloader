@@ -258,10 +258,12 @@ Bu isimler yt-dlp'nin release varlıklarına göre geliştirme başında doğrul
 
 MP3 çıkarma (`-x --audio-format mp3`) ve MP4 merge (`bestvideo+bestaudio`) ffmpeg olmadan çalışmaz. İki seçenek:
 
-- **A (varsayılan):** `ffmpeg-static` npm paketi ile uygulamaya gömmek. Platform binary'sini npm install anında indirir; bu yüzden her platformun installer'ı kendi CI runner'ında üretilmeli (zaten §12'deki matris bunu yapıyor). `asarUnpack` ile paketten çıkarılır. Artı: offline çalışır, sürüm sabit. Eksi: installer boyutu ~+80 MB.
-- **B:** yt-dlp binary'si ile aynı runtime indirme akışı. Artı: küçük installer. Eksi: macOS için resmî tek dosya statik build kaynağı yt-dlp organizasyonunda yok; üçüncü parti kaynak gerekir — güven sınırı genişler.
+- **A:** `ffmpeg-static` npm paketi ile uygulamaya gömmek. Artı: offline çalışır, sürüm sabit. Eksi: yükleyici ~45 MB büyür ve GPL lisanslı bir ikili **dağıtılmış** olur — bildirim ve kaynak erişimi yükümlülüğü doğar.
+- **B:** yt-dlp/deno ile aynı runtime indirme akışı. Artı: küçük yükleyici, GPL dağıtımı yok (kullanıcı kendi makinesine indiriyor), ffmpeg uygulamadan bağımsız güncellenebilir. Eksi: ilk açılışta bir indirme daha; ağsız kurulum çalışmaz.
 
-**Karar: A.** Sebep: ffmpeg, yt-dlp gibi sık güncelleme gerektirmez; üçüncü parti indirme kaynağına güvenmemek daha değerli. B'ye geçiş kolay (aynı `manager.ts` arayüzü).
+**Karar: B** (Faz 7 sonrası, ilk sürümde A idi). Kaynak: `eugeneware/ffmpeg-static` GitHub release'indeki tek dosyalık statik derlemeler — npm paketiyle gelen ikililerin **aynısı**, yani davranış değişmiyor; darwin-arm64 dahil tüm platformlar var. Bütünlük GitHub'ın varlık başına verdiği `digest: sha256:…` alanıyla doğrulanır (bu repo ayrı bir SUMS dosyası yayınlamıyor; npm paketinin kendi kurulum betiği ise hiç doğrulama yapmıyor — yani indirmeyi kendimiz yapmak bütünlük açısından bir gerileme değil, iyileştirme).
+
+ffmpeg **zorunlu**: MP3'e dönüştürme ve video+ses birleştirme onsuz çalışmaz. Bu yüzden deno'nun aksine "en iyi çaba" değil — inemezse hazırlık düşer ve kullanıcı hata ekranını görür.
 
 ### JavaScript runtime (yt-dlp EJS) — açık konu
 
@@ -460,7 +462,7 @@ makers: [
 
 `packagerConfig`: `asar: true`, `asarUnpack` ile ffmpeg binary'si; `icon` platform başına (`resources/icon.icns|ico|png`).
 
-**CI (GitHub Actions):** `macos-latest`, `windows-latest`, `ubuntu-latest` matrisi. Her runner kendi platformunun installer'ını üretir (ffmpeg-static seçimi bunu zorunlu kılıyor). Matris yalnızca sürüm etiketinde (`v*`) ve elle tetiklemede çalışır — her push'ta üç runner çalıştırmak gereksiz. Tag push'unda artefaktlar `gh release upload` ile GitHub Release'e yüklenir. Ubuntu runner'ında `MakerRpm` için `rpm` paketi kurulur.
+**CI (GitHub Actions):** `macos-latest`, `windows-latest`, `ubuntu-latest` matrisi. Her runner kendi platformunun installer'ını üretir. Matris yalnızca sürüm etiketinde (`v*`) ve elle tetiklemede çalışır — her push'ta üç runner çalıştırmak gereksiz. Tag push'unda artefaktlar `gh release upload` ile GitHub Release'e yüklenir. Ubuntu runner'ında `MakerRpm` için `rpm` paketi kurulur.
 
 **Doğrulama durumu:** macOS arm64 için `.dmg` (144 MB) ve `.zip` yerelde üretildi, paketlenmiş uygulama hatasız açıldı (asar bütünlük fuse'u ve `Resources/` altındaki ffmpeg yolu dahil), ikonun pakete işlendiği dosya özetiyle doğrulandı. **Windows ve Linux yükleyicileri henüz hiç üretilmedi** — ilk gerçek denemeleri CI matrisinin ilk çalışmasında olacak.
 
@@ -495,7 +497,7 @@ Her faz sonunda uygulama çalışır durumda olur — yarım bırakılmış katm
 | YouTube tarafındaki değişiklikler indirmeyi bozar | Uygulama işlevsiz kalır | yt-dlp otomatik güncelleme (24 saatlik kontrol) tam da bunun için |
 | Electron ile ~150 MB'lık uygulama, JavaFX'e göre büyük | Disk / indirme | Kabul edilir; runtime bağımlılığı olmaması karşılığında |
 | Telif / kullanım şartları | Hukuki | README'de kullanım sorumluluğu notu; uygulama DRM aşma özelliği içermez |
-| Yükleyici GPL lisanslı ffmpeg içeriyor (`ffmpeg-static`), depo kodu MIT | Hukuki | Kendi kodun lisansı değişmez (ffmpeg ayrı süreç olarak çağrılıyor) ama aynı yükleyicide dağıtıldığı için GPL bildirimi ve kaynak erişimi gerekir — README'ye eklendi. Tamamen kaçınmak istenirse ffmpeg de yt-dlp/deno gibi çalışma zamanında indirilebilir (bkz. §6-B) |
+| ~~Yükleyici GPL lisanslı ffmpeg içeriyor~~ | Hukuki | **Çözüldü:** ffmpeg artık paketlenmiyor, kullanıcının makinesine çalışma zamanında iniyor (§6-B). Dağıtılan yükleyicide GPL bileşen kalmadı; depo MIT |
 | Uygulama ikonu YouTube marka işaretine benziyor | Marka | Kişisel kullanımda sorun değil; genel dağıtımda özgün bir ikon tasarlanmalı |
 
 ---

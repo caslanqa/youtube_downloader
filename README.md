@@ -27,10 +27,12 @@ Uygulama, ihtiyaç duyduğu araçları kendisi indirir (SHA-256 doğrulamalı, `
 | Araç | Boyut | Neden |
 |---|---|---|
 | `yt-dlp` | ~38 MB | İndirme motoru |
+| `ffmpeg` | ~43 MB | MP3'e dönüştürme ve video+ses birleştirme |
 | `deno` | ~37 MB (diskte ~81 MB) | yt-dlp'nin YouTube çıkarımı için gereken JavaScript runtime'ı |
-| `ffmpeg` | uygulamayla gelir | MP3'e dönüştürme ve video+ses birleştirme |
 
-deno inemezse uygulama çalışmaya devam eder; yalnızca bazı video formatları listelenmez.
+Üçü de uygulamayla paketlenmez: yükleyici küçük kalır ve araçlar uygulamayı yeniden
+yayınlamadan güncellenebilir. deno inemezse uygulama çalışmaya devam eder; yalnızca bazı
+video formatları listelenmez. yt-dlp veya ffmpeg inemezse hazırlık ekranında hata görürsünüz.
 
 ## Geliştirme
 
@@ -83,15 +85,11 @@ node scripts/make-icons.mjs
 
 ## Lisanslar
 
-Bu deponun kaynak kodu MIT lisanslıdır. Yükleyicilerle birlikte dağıtılan **ffmpeg**
-(`ffmpeg-static` paketi) GPL-3.0-or-later lisanslıdır: uygulamayı dağıtıyorsanız GPL'in
-gerektirdiği bildirim ve kaynak kodu erişimini de sağlamanız gerekir
-(<https://github.com/eugeneware/ffmpeg-static> ve <https://ffmpeg.org/download.html>).
-Bu, kendi kodunuzun lisansını değiştirmez — ffmpeg ayrı bir program olarak çağrılıyor —
-ama aynı yükleyicinin içinde dağıtıldığı için bildirim yükümlülüğü doğar.
+Bu deponun kaynak kodu MIT lisanslıdır ([`LICENSE`](LICENSE)).
 
-`yt-dlp` (Unlicense) ve `deno` (MIT) uygulamayla birlikte dağıtılmaz; kullanıcının
-makinesinde çalışma zamanında indirilir.
+Kullanılan üç araç da **yükleyiciyle dağıtılmaz**; kullanıcının makinesinde çalışma zamanında
+indirilir: `yt-dlp` (Unlicense), `ffmpeg` (GPL-3.0-or-later), `deno` (MIT). Bu nedenle
+dağıtılan yükleyicide GPL bileşen bulunmaz.
 
 ## Sorumluluk
 

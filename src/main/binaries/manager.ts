@@ -1,5 +1,5 @@
-// Binary hazırlığı: yt-dlp ve deno indirir + SHA-256 doğrular, ffmpeg-static'i
-// doğrular, sürümleri okur. bkz. docs/PLAN.md §6.
+// Binary hazırlığı: yt-dlp, ffmpeg ve deno'yu indirir + SHA-256 doğrular,
+// sürümlerini okur. Üçü de uygulamayla paketlenmez. bkz. docs/PLAN.md §6.
 import { app } from 'electron';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -10,7 +10,7 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import type { BinaryState } from '../../shared/types';
 import { DENO_REPO, getDenoAssetName, getDenoLocalName, getDenoSumsAssetName } from './deno';
-import { getFfmpegPath } from './ffmpeg';
+import { FFMPEG_REPO, getFfmpegAssetName, getFfmpegLocalName } from './ffmpeg';
 import { setDenoDirectory } from './runtimeEnv';
 import { YTDLP_REPO, YTDLP_SUMS_ASSET, getYtDlpAssetName, getYtDlpLocalName } from './ytdlp';
 
@@ -19,6 +19,8 @@ const USER_AGENT = 'youtube-downloader-app';
 interface ReleaseAsset {
   name: string;
   browser_download_url: string;
+  /** GitHub'ın varlık başına verdiği özet, "sha256:<hex>" biçiminde (her repoda bulunmayabilir). */
+  digest?: string | null;
 }
 
 interface ReleaseInfo {
@@ -85,6 +87,13 @@ export async function sha256File(filePath: string): Promise<string> {
   return hash.digest('hex');
 }
 
+/** GitHub varlık digest'ine ("sha256:<hex>") karşı doğrulama. */
+export async function verifyDigest(filePath: string, digest: string | null | undefined): Promise<boolean> {
+  const expected = digest?.replace(/^sha256:/, '').toLowerCase();
+  if (!expected) throw new Error('Varlık için sha256 digest bulunamadı');
+  return expected === (await sha256File(filePath)).toLowerCase();
+}
+
 /** `sha256sum` formatlı bir SUMS dosyası içinden `fileName` doğrulamasını yapar. */
 export async function verifyChecksum(filePath: string, fileName: string, sumsContent: string): Promise<boolean> {
   const line = sumsContent.split('\n').find((entry) => entry.trim().endsWith(fileName));
@@ -101,10 +110,10 @@ export async function verifyChecksum(filePath: string, fileName: string, sumsCon
  * bakmak yetmez — yarım inmiş veya chmod'u yapılamamış bir dosya EACCES ile patlar ve
  * varlık kontrolü onu sonsuza dek onarılmaz bırakır.
  */
-async function isUsableBinary(binPath: string): Promise<boolean> {
+async function isUsableBinary(binPath: string, versionArgs: string[] = ['--version']): Promise<boolean> {
   try {
     await fsp.access(binPath, fs.constants.X_OK);
-    await readVersion(binPath, ['--version']);
+    await readVersion(binPath, versionArgs);
     return true;
   } catch {
     return false;
@@ -155,6 +164,37 @@ async function makeExecutable(binPath: string): Promise<void> {
       proc.on('error', () => resolve());
     });
   }
+}
+
+/**
+ * ffmpeg zorunlu: MP3'e dönüştürme ve video+ses birleştirme onsuz çalışmaz,
+ * bu yüzden deno'nun aksine "en iyi çaba" değil — indirilemezse hazırlık düşer.
+ */
+async function ensureFfmpeg(binDir: string, onState: (state: BinaryState) => void): Promise<string> {
+  const localPath = path.join(binDir, getFfmpegLocalName());
+  if (fs.existsSync(localPath)) {
+    if (await isUsableBinary(localPath, ['-version'])) return localPath;
+    await fsp.rm(localPath, { force: true });
+  }
+
+  onState({ kind: 'downloading', name: 'ffmpeg', percent: 0 });
+  const release = await fetchLatestRelease(FFMPEG_REPO);
+  const assetName = getFfmpegAssetName();
+  const asset = release.assets.find((a) => a.name === assetName);
+  if (!asset) throw new Error(`ffmpeg release varlığı bulunamadı: ${assetName}`);
+
+  await fsp.mkdir(binDir, { recursive: true });
+  await downloadWithProgress(asset.browser_download_url, localPath, (percent) =>
+    onState({ kind: 'downloading', name: 'ffmpeg', percent }),
+  );
+
+  if (!(await verifyDigest(localPath, asset.digest))) {
+    await fsp.rm(localPath, { force: true });
+    throw new Error('ffmpeg checksum doğrulaması başarısız — dosya silindi');
+  }
+
+  await makeExecutable(localPath);
+  return localPath;
 }
 
 /** Arşiv açma: işletim sisteminin kendi aracı kullanılır, ek bağımlılık yok. */
@@ -262,7 +302,7 @@ async function doEnsureBinaries(onState: (state: BinaryState) => void): Promise<
     // Dışarıdan verilen yollar indirmenin yerine geçer: indirme kaynağı bozulduğunda
     // kullanıcıya kaçış yolu (bkz. docs/PLAN.md §14) ve uçtan uca testler için giriş noktası.
     const ytdlpPath = process.env.YTDL_YTDLP_PATH || (await ensureYtDlp(binDir, onState));
-    const ffmpegPath = process.env.YTDL_FFMPEG_PATH || getFfmpegPath();
+    const ffmpegPath = process.env.YTDL_FFMPEG_PATH || (await ensureFfmpeg(binDir, onState));
     const [ytdlpVersion, ffmpegVersionLine] = await Promise.all([
       readVersion(ytdlpPath, ['--version']),
       readVersion(ffmpegPath, ['-version']),

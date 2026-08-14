@@ -65,6 +65,8 @@ test('bağlantı incelenir, iş kuyruğa alınır ve tamamlanır', async () => {
   await page.getByLabel('YouTube bağlantısı').fill('https://www.youtube.com/watch?v=abc123');
   await expect(page.getByText('Sahte Test Videosu')).toBeVisible();
 
+  // Albüm adı probe başlığından otomatik dolar; kullanıcı yazınca üzerine yazılmaz.
+  await expect(page.getByLabel('Albüm adı')).toHaveValue('Sahte Test Videosu');
   await page.getByLabel('Albüm adı').fill('E2E Albüm');
   await page.getByRole('button', { name: 'Kuyruğa ekle' }).click();
 

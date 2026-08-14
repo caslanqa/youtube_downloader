@@ -9,6 +9,10 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
+const MAINTAINER_NAME = 'caslanqa';
+const MAINTAINER = 'caslanqa <cihan.aslan.qa@gmail.com>';
+const HOMEPAGE = 'https://github.com/caslanqa/youtube_downloader';
+
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
@@ -16,11 +20,8 @@ const config: ForgeConfig = {
     icon: path.join('resources', 'icon'),
     appBundleId: 'com.caslanqa.ytdownloader',
     appCategoryType: 'public.app-category.utilities',
-    // electron-forge/plugin-vite node_modules'i pakete dahil etmiyor (her şeyin
-    // vite ile bundle edildiği varsayılır); ffmpeg bir binary olduğu için
-    // bundle edilemez, bu yüzden doğrudan Resources/ altına kopyalanır.
-    // bkz. src/main/binaries/ffmpeg.ts
-    extraResource: [path.join('node_modules', 'ffmpeg-static', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')],
+    win32metadata: { CompanyName: MAINTAINER_NAME },
+    // ffmpeg, yt-dlp ve deno paketlenmez; çalışma zamanında indirilir (docs/PLAN.md §6).
   },
   rebuildConfig: {},
   makers: [
@@ -28,8 +29,14 @@ const config: ForgeConfig = {
     new MakerDMG({ icon: path.join('resources', 'icon.icns') }, ['darwin']),
     // ZIP yalnızca macOS için: ileride otomatik güncelleme (electron-updater) bu biçimi ister.
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({ options: { icon: path.join('resources', 'icon.png') } }, ['linux']),
-    new MakerDeb({ options: { icon: path.join('resources', 'icon.png') } }, ['linux']),
+    new MakerRpm(
+      { options: { icon: path.join('resources', 'icon.png'), homepage: HOMEPAGE, license: 'MIT' } },
+      ['linux'],
+    ),
+    new MakerDeb(
+      { options: { icon: path.join('resources', 'icon.png'), maintainer: MAINTAINER, homepage: HOMEPAGE } },
+      ['linux'],
+    ),
   ],
   plugins: [
     new VitePlugin({
