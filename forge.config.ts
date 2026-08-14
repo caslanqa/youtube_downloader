@@ -21,6 +21,10 @@ const config: ForgeConfig = {
     appBundleId: 'com.caslanqa.ytdownloader',
     appCategoryType: 'public.app-category.utilities',
     win32metadata: { CompanyName: MAINTAINER_NAME },
+    // deb/rpm maker'ları çalıştırılabilir dosyayı paket adıyla arar; packager ise
+    // varsayılan olarak productName'i ("YouTube Downloader") kullanır ve Linux
+    // derlemesi "could not find the Electron app binary" ile düşer.
+    ...(process.platform === 'linux' ? { executableName: 'youtube-downloader' } : {}),
     // ffmpeg, yt-dlp ve deno paketlenmez; çalışma zamanında indirilir (docs/PLAN.md §6).
   },
   rebuildConfig: {},
