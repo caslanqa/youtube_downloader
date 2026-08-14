@@ -21,6 +21,16 @@ function suggestAlbumName(title: string): string {
     .trim();
 }
 
+/**
+ * Absolute destination paths are long enough to make the row unreadable, and the leading
+ * segments carry no information for the user. Only the last two segments are shown; the full
+ * path stays available as a tooltip.
+ */
+function shortenPath(fullPath: string): string {
+  const segments = fullPath.split(/[\\/]+/).filter(Boolean);
+  return segments.length <= 2 ? fullPath : `…/${segments.slice(-2).join('/')}`;
+}
+
 export function DownloadForm({
   settings,
   onPatch,
@@ -127,7 +137,14 @@ export function DownloadForm({
           {t('destinationLabel')}
         </label>
         <div className="flex gap-2">
-          <input id="destination" type="text" readOnly value={settings.destination} className={`${FIELD} text-muted`} />
+          <input
+            id="destination"
+            type="text"
+            readOnly
+            value={shortenPath(settings.destination)}
+            title={settings.destination}
+            className={`${FIELD} text-muted`}
+          />
           <button
             type="button"
             onClick={async () => {
