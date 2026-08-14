@@ -41,6 +41,11 @@ npm install
 npm start
 ```
 
+> **Lockfile notu:** npm 11.16 platforma özgü isteğe bağlı paketleri (esbuild, rollup)
+> lock dosyasına `optional` yerine `extraneous` diye yazıyor; bu lock ile `npm ci` başka
+> platformlarda `EBADPLATFORM` veriyor. `package-lock.json` yeniden üretilecekse stok bir
+> npm 10 kullanın: `npx npm@10.9.2 install --package-lock-only`.
+
 ## Testler
 
 ```bash
