@@ -31,7 +31,20 @@ CI yalnızca ilk üçünü çalıştırır; uçtan uca testler yerelde çalışt
 ## Paketleme
 
 ```bash
-npm run make
+npm run make          # çalışılan platformun yükleyicisini out/make altına üretir
+```
+
+Üretilenler: macOS `.dmg` + `.zip`, Windows `Setup.exe` (Squirrel), Linux `.deb` + `.rpm`.
+Her platform kendi runner'ında derlenmeli — ffmpeg binary'si kurulum anında platforma göre iniyor.
+CI, sürüm etiketi (`v*`) gönderildiğinde veya elle tetiklendiğinde üç platformu birden derler.
+
+Yükleyiciler **imzalanmıyor**: macOS'ta ilk açılışta Gatekeeper uyarısı çıkar (sağ tık → Aç),
+Windows'ta SmartScreen "yine de çalıştır" ister.
+
+İkonlar tek kaynak PNG'den üretilip depoya işlenmiştir; yeniden üretmek için (macOS gerekir):
+
+```bash
+node scripts/make-icons.mjs [kaynak.png]
 ```
 
 ## Eski sürüm (v1, JavaFX)

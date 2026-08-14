@@ -2,6 +2,7 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 import path from 'node:path';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
+import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
@@ -11,6 +12,10 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    // Uzantısız: packager platforma göre .icns / .ico seçer (bkz. scripts/make-icons.mjs).
+    icon: path.join('resources', 'icon'),
+    appBundleId: 'com.caslanqa.ytdownloader',
+    appCategoryType: 'public.app-category.utilities',
     // electron-forge/plugin-vite node_modules'i pakete dahil etmiyor (her şeyin
     // vite ile bundle edildiği varsayılır); ffmpeg bir binary olduğu için
     // bundle edilemez, bu yüzden doğrudan Resources/ altına kopyalanır.
@@ -19,10 +24,12 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}),
+    new MakerSquirrel({ setupIcon: path.join('resources', 'icon.ico') }, ['win32']),
+    new MakerDMG({ icon: path.join('resources', 'icon.icns') }, ['darwin']),
+    // ZIP yalnızca macOS için: ileride otomatik güncelleme (electron-updater) bu biçimi ister.
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerRpm({ options: { icon: path.join('resources', 'icon.png') } }, ['linux']),
+    new MakerDeb({ options: { icon: path.join('resources', 'icon.png') } }, ['linux']),
   ],
   plugins: [
     new VitePlugin({

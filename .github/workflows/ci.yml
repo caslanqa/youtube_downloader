@@ -3,12 +3,13 @@ name: CI
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
+  workflow_dispatch:
 
 jobs:
   # Uçtan uca testler (npm run e2e) burada çalışmıyor: uygulamayı paketlemeyi ve
-  # bir görüntü sunucusunu gerektiriyor. Yerelde çalıştırılır; platform matrisiyle
-  # birlikte Faz 6'da CI'ya alınacak (bkz. docs/PLAN.md §10, §13).
+  # bir görüntü sunucusunu gerektiriyor. Yerelde çalıştırılır (bkz. docs/PLAN.md §10).
   check:
     runs-on: ubuntu-latest
     steps:
@@ -21,3 +22,39 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+
+  # Yükleyiciler yalnızca sürüm etiketlerinde ve elle tetiklemede üretilir:
+  # her push'ta üç runner çalıştırmak gereksiz. Her platform kendi yükleyicisini
+  # üretmek zorunda, çünkü ffmpeg-static binary'yi kurulum anında indiriyor.
+  build:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: rpm aracını kur (MakerRpm için)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - run: npm ci
+      - run: npm run make
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          path: out/make/**/*
+          if-no-files-found: error
+
+      # İmzalama yok: macOS'ta Gatekeeper, Windows'ta SmartScreen uyarısı çıkar (plan §12, §14).
+      - name: Yükleyicileri sürüme ekle
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: gh release upload "${GITHUB_REF_NAME}" $(find out/make -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' \)) --clobber

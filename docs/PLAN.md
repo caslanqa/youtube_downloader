@@ -457,7 +457,9 @@ makers: [
 
 `packagerConfig`: `asar: true`, `asarUnpack` ile ffmpeg binary'si; `icon` platform başına (`resources/icon.icns|ico|png`).
 
-**CI (GitHub Actions):** `macos-latest`, `windows-latest`, `ubuntu-latest` matrisi. Her runner kendi platformunun installer'ını üretir (ffmpeg-static seçimi bunu zorunlu kılıyor). Tag push'unda artefaktlar GitHub Release'e yüklenir.
+**CI (GitHub Actions):** `macos-latest`, `windows-latest`, `ubuntu-latest` matrisi. Her runner kendi platformunun installer'ını üretir (ffmpeg-static seçimi bunu zorunlu kılıyor). Matris yalnızca sürüm etiketinde (`v*`) ve elle tetiklemede çalışır — her push'ta üç runner çalıştırmak gereksiz. Tag push'unda artefaktlar `gh release upload` ile GitHub Release'e yüklenir. Ubuntu runner'ında `MakerRpm` için `rpm` paketi kurulur.
+
+**Doğrulama durumu:** macOS arm64 için `.dmg` (144 MB) ve `.zip` yerelde üretildi, paketlenmiş uygulama hatasız açıldı (asar bütünlük fuse'u ve `Resources/` altındaki ffmpeg yolu dahil), ikonun pakete işlendiği dosya özetiyle doğrulandı. **Windows ve Linux yükleyicileri henüz hiç üretilmedi** — ilk gerçek denemeleri CI matrisinin ilk çalışmasında olacak.
 
 **İmzalama yok (ilk sürüm):** macOS'ta Gatekeeper "doğrulanamadı" uyarısı, Windows'ta SmartScreen uyarısı çıkar. README'de ilk açılış talimatı (macOS: sağ tık → Aç) yer alır.
 
