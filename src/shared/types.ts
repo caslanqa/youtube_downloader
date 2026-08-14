@@ -9,6 +9,15 @@ export type BinaryState =
 
 export type Format = 'mp3' | 'mp4' | 'webm';
 
+export interface MediaInfo {
+  id: string;
+  title: string;
+  thumbnail?: string;
+  duration?: number;
+  isPlaylist: boolean;
+  entryCount: number; // tekil video için 1
+}
+
 export interface JobRequest {
   url: string;
   format: Format;
@@ -20,7 +29,7 @@ export interface JobRequest {
 
 export type JobStatus =
   | { kind: 'queued' }
-  | { kind: 'running'; percent: number; speed?: string; eta?: string }
+  | { kind: 'running'; percent: number; speed?: string; eta?: string; currentItem?: number; totalItems?: number }
   | { kind: 'done'; outputDir: string; fileCount: number }
   | { kind: 'error'; message: string; logTail: string }
   | { kind: 'cancelled' };
@@ -28,5 +37,16 @@ export type JobStatus =
 export interface Job {
   id: string;
   request: JobRequest;
+  info?: MediaInfo;
   status: JobStatus;
+}
+
+export interface Settings {
+  destination: string;
+  defaultFormat: Format;
+  concurrency: number;
+  numberPlaylistItems: boolean;
+  embedMetadata: boolean;
+  theme: 'system' | 'light' | 'dark';
+  ytdlpAutoUpdate: boolean;
 }

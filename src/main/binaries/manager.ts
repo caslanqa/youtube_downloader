@@ -45,21 +45,27 @@ async function downloadWithProgress(
   }
   const total = Number(res.headers.get('content-length')) || 0;
   let downloaded = 0;
-  const partPath = `${destPath}.part`;
+  // Süreç kimliği eklenir: iki uygulama örneği aynı anda indirse bile aynı .part dosyasına yazmazlar.
+  const partPath = `${destPath}.${process.pid}.part`;
 
-  await pipeline(
-    Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]),
-    async function* track(source: AsyncIterable<Buffer>) {
-      for await (const chunk of source) {
-        downloaded += chunk.length;
-        if (total > 0) onPercent(Math.round((downloaded / total) * 100));
-        yield chunk;
-      }
-    },
-    fs.createWriteStream(partPath),
-  );
-  // Yarım dosya asla çalıştırılmaz: doğrulamadan önce .part olarak kalır.
-  await fsp.rename(partPath, destPath);
+  try {
+    await pipeline(
+      Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]),
+      async function* track(source: AsyncIterable<Buffer>) {
+        for await (const chunk of source) {
+          downloaded += chunk.length;
+          if (total > 0) onPercent(Math.round((downloaded / total) * 100));
+          yield chunk;
+        }
+      },
+      fs.createWriteStream(partPath),
+    );
+    // Yarım dosya asla çalıştırılmaz: doğrulamadan önce .part olarak kalır.
+    await fsp.rename(partPath, destPath);
+  } catch (err) {
+    await fsp.rm(partPath, { force: true }); // yarım kalan dosya bir sonraki denemeyi kirletmesin
+    throw err;
+  }
 }
 
 /** Verilen dosyanın SHA-256 özeti. Test edilebilir olması için export edildi. */
@@ -82,10 +88,28 @@ export async function verifyChecksum(filePath: string, fileName: string, sumsCon
   return expected === actual;
 }
 
+/**
+ * Diskteki ikilinin gerçekten kullanılabilir olduğunu doğrular: yalnızca "dosya var mı"
+ * bakmak yetmez — yarım inmiş veya chmod'u yapılamamış bir dosya EACCES ile patlar ve
+ * varlık kontrolü onu sonsuza dek onarılmaz bırakır.
+ */
+async function isUsableBinary(binPath: string): Promise<boolean> {
+  try {
+    await fsp.access(binPath, fs.constants.X_OK);
+    await readVersion(binPath, ['--version']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function ensureYtDlp(binDir: string, onState: (state: BinaryState) => void): Promise<string> {
   const localPath = path.join(binDir, getYtDlpLocalName());
   if (fs.existsSync(localPath)) {
-    return localPath;
+    if (await isUsableBinary(localPath)) {
+      return localPath;
+    }
+    await fsp.rm(localPath, { force: true }); // bozuk kopya: yeniden indirilecek
   }
 
   onState({ kind: 'downloading', name: 'yt-dlp', percent: 0 });
@@ -137,9 +161,32 @@ function readVersion(binPath: string, args: string[]): Promise<string> {
   });
 }
 
-export async function ensureBinaries(
-  onState: (state: BinaryState) => void,
-): Promise<{ ytdlpPath: string; ffmpegPath: string }> {
+interface BinaryPaths {
+  ytdlpPath: string;
+  ffmpegPath: string;
+}
+
+// Tek uçuş (single-flight): pencere yeniden yüklendiğinde renderer ensureBinaries'i tekrar
+// çağırır. Koruma olmadan iki indirme aynı dosyalar üzerinde yarışır (checksum hatası,
+// rename ENOENT). Sonuç ayrıca önbelleğe alınır; geç gelen çağrı 'ready' durumunu tekrar alır.
+let inFlight: Promise<BinaryPaths> | null = null;
+let ready: { paths: BinaryPaths; state: BinaryState } | null = null;
+
+export function ensureBinaries(onState: (state: BinaryState) => void): Promise<BinaryPaths> {
+  if (ready) {
+    onState(ready.state);
+    return Promise.resolve(ready.paths);
+  }
+  if (!inFlight) {
+    inFlight = doEnsureBinaries(onState).catch((err) => {
+      inFlight = null; // başarısızlık kalıcı değil: kullanıcı yeniden deneyebilir
+      throw err;
+    });
+  }
+  return inFlight;
+}
+
+async function doEnsureBinaries(onState: (state: BinaryState) => void): Promise<BinaryPaths> {
   onState({ kind: 'checking' });
   const binDir = path.join(app.getPath('userData'), 'bin');
 
@@ -151,8 +198,10 @@ export async function ensureBinaries(
       readVersion(ffmpegPath, ['-version']),
     ]);
     const ffmpegVersion = ffmpegVersionLine.split(' ')[2] ?? ffmpegVersionLine;
-    onState({ kind: 'ready', ytdlpVersion, ffmpegVersion });
-    return { ytdlpPath, ffmpegPath };
+    const state: BinaryState = { kind: 'ready', ytdlpVersion, ffmpegVersion };
+    onState(state);
+    ready = { paths: { ytdlpPath, ffmpegPath }, state };
+    return ready.paths;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     onState({ kind: 'failed', message });

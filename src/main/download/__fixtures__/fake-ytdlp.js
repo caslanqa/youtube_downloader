@@ -12,9 +12,11 @@ fs.mkdirSync(outputDir, { recursive: true });
 
 const mode = process.env.FAKE_YTDLP_MODE || 'success';
 
+// Gerçek yt-dlp `--progress-template "download:%(progress)j"` ile çıplak JSON satırı yazar;
+// `download:` tip seçicidir ve çıktıya girmez. Sahte ikili de aynısını yapmalı.
 function emit(downloadedBytes, totalBytes) {
   process.stdout.write(
-    `download:${JSON.stringify({
+    `${JSON.stringify({
       status: 'downloading',
       downloaded_bytes: downloadedBytes,
       total_bytes: totalBytes,

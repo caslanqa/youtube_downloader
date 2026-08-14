@@ -51,7 +51,7 @@ Yeniden yazımda korunacak davranışlar ve düzeltilecek kusurlar:
 | Dil | TypeScript (strict) | Süreçler arası sözleşmelerin (IPC) tip güvenliği |
 | UI | React 19 + Tailwind CSS v4 | En geniş ekosistem; hazır erişilebilir komponentler (shadcn/ui, Radix) |
 | Build / paketleme | Electron Forge + Vite plugin (`vite-typescript` template) | Resmî Electron aracı; Vite HMR; makers ile dmg/exe/deb üretimi tek konfigürasyondan |
-| State | Zustand | İndirme kuyruğu için Redux ağırlığına gerek yok; küçük ve tipli |
+| State | React `useState` (Faz 3 kararı) | Kuyruk durumu tek bileşende yaşıyor ve main sürecinden olay olarak geliyor; ayrı bir state kütüphanesi (Zustand) eklemeye gerek kalmadı. Bileşenler Faz 4'te bölünürken yeniden değerlendirilir |
 | Test | Vitest (birim) + Playwright `_electron` (uçtan uca) | Vite ile aynı konfigürasyon; Playwright Electron'u doğrudan başlatabiliyor |
 | Log | `electron-log` | Ana süreç ve renderer loglarını tek dosyada toplar, hata raporlaması için gerekli |
 | İndirme motoru | `yt-dlp` (uygulamanın yönettiği binary) | Mevcut çözümle aynı; alternatifsiz |
@@ -261,6 +261,28 @@ MP3 çıkarma (`-x --audio-format mp3`) ve MP4 merge (`bestvideo+bestaudio`) ffm
 
 **Karar: A.** Sebep: ffmpeg, yt-dlp gibi sık güncelleme gerektirmez; üçüncü parti indirme kaynağına güvenmemek daha değerli. B'ye geçiş kolay (aynı `manager.ts` arayüzü).
 
+### JavaScript runtime (yt-dlp EJS) — açık konu
+
+yt-dlp 2026.07 sürümü, JS runtime olmadan YouTube çıkarımını **kullanımdan kaldırılmış** sayıyor:
+
+```
+WARNING: [youtube] No supported JavaScript runtime could be found. Only deno is enabled
+by default ... YouTube extraction without a JS runtime has been deprecated, and some
+formats may be missing.
+```
+
+Desteklenen runtime'lar (öncelik sırasıyla): `deno`, `node`, `quickjs`, `bun`. Varsayılan olarak yalnızca `deno` etkin ve kullanıcı makinesinde deno bulunmuyor.
+
+**Bulgu:** Electron kendi Node'unu içerir; `ELECTRON_RUN_AS_NODE=1` ortam değişkeni ile uygulama ikilisi node gibi davranır. yt-dlp'ye `--js-runtimes node:<electron-ikilisi>` verildiğinde runtime kabul edildi ve uyarı kayboldu:
+
+```
+[youtube] [jsc:node] Solving JS challenges using node
+```
+
+Yani **ek bir binary indirmeden** (deno paketlemeden) bu gereksinim karşılanabiliyor.
+
+**Neden henüz açılmadı:** Runtime açık/kapalı karşılaştırması YouTube tarafındaki hız sınırına (art arda istekte HTTP 403) denk geldiği için temiz bir A/B yapılamadı. Açmadan önce ölçülecek: aynı video, aynı format profili, runtime açık ve kapalı — indirme başarısı ve seçilen format kimliği. Faz 5'te karara bağlanır (bkz. §15/6).
+
 ### Komut çalıştırma (enjeksiyon güvenliği)
 
 Kullanıcıdan gelen URL doğrudan kabuğa verilmez:
@@ -274,8 +296,16 @@ Kullanıcıdan gelen URL doğrudan kabuğa verilmez:
 Satır ayrıştırmak yerine yt-dlp'nin yapılandırılmış çıktısı kullanılır:
 
 ```
-yt-dlp --newline --no-color --progress --progress-template "download:%(progress)j" ...
+yt-dlp --newline --no-color --progress-template "download:%(progress)j" ...
 ```
+
+**Dikkat (gerçek çıktıyla doğrulandı, yt-dlp 2026.07.04):** şablondaki `download:` bir **tip seçicidir**, çıktıya yazılmaz. Satırlar öneksiz, çıplak JSON olarak gelir:
+
+```
+{"status": "downloading", "downloaded_bytes": 130048, "total_bytes": 307453, ...}
+```
+
+Ayrıştırıcı bu yüzden `download:` öneki aramaz; satırın `{` ile başlamasına ve `downloaded_bytes` alanı taşımasına bakar. Sahte test ikilileri de aynı biçimi üretir — aksi halde testler yeşil kalırken gerçek ilerleme çubuğu hiç hareket etmez.
 
 Her satır JSON: `downloaded_bytes`, `total_bytes`, `speed`, `eta`, `filename`. Playlist ilerlemesi için `%(info.playlist_index)s/%(info.n_entries)s` şablona eklenir. Bu, mevcut koddaki `line.contains("Downloading item")` string eşlemesinin yerini alır — yt-dlp çıktı metnini değiştirse bile bozulmaz.
 
@@ -386,7 +416,7 @@ Ağ gerektiren gerçek indirme testleri CI'da varsayılan olarak çalışmaz (`@
 - [ ] Albüm adı → yol geçişi (`path traversal`) engelleniyor
 - [ ] Binary indirmeleri yalnızca HTTPS + SHA-256 doğrulaması
 - [ ] `will-navigate` ve `setWindowOpenHandler` ile uygulama içi gezinme engelleniyor; dış bağlantılar `shell.openExternal`
-- [ ] Content-Security-Policy başlığı tanımlı (`default-src 'self'`)
+- [ ] Content-Security-Policy başlığı tanımlı (`default-src 'self'`) — kapak görselleri için `img-src 'self' https://*.ytimg.com data:` istisnası gerekir, aksi halde probe önizlemesindeki thumbnail engellenir
 - [ ] Üretim derlemesinde DevTools kapalı
 
 ---
@@ -452,6 +482,7 @@ Geliştirme sırasında netleştirilecek, planı bloklamayan konular:
 3. Arayüz dili: İngilizce mi Türkçe mi başlanacak (i18n yapısı her hâlükârda hazır bırakılır).
 4. `legacy/` Faz 7'de gerçekten silinsin mi, yoksa arşiv olarak kalsın mı?
 5. Auto-update (electron-updater) ne zaman devreye girsin — imzalama olmadan macOS'ta çalışmıyor.
+6. yt-dlp JS runtime'ı (`--js-runtimes node:<electron>` + `ELECTRON_RUN_AS_NODE=1`) açılsın mı? Teknik olarak çalıştığı doğrulandı; açık/kapalı indirme başarısı karşılaştırması yapılmadı (bkz. §6).
 
 ---
 

@@ -33,17 +33,22 @@ function formatEta(seconds: number | null | undefined): string | undefined {
   return `${Math.round(seconds)}s`;
 }
 
-/** yt-dlp'nin `download:{json}` satırını ayrıştırır. Tanınmayan satırlar için null döner. */
+/**
+ * yt-dlp'nin ilerleme satırını ayrıştırır. `--progress-template "download:%(progress)j"`
+ * içindeki `download:` bir TİP seçicidir ve çıktıya yazılmaz — satırlar çıplak JSON gelir
+ * (yt-dlp 2026.07.04 ile doğrulandı). Tanınmayan satırlar için null döner.
+ */
 export function parseProgressLine(line: string): ParsedProgress | null {
-  if (!line.startsWith('download:')) return null;
+  if (!line.startsWith('{')) return null;
   try {
-    const data = JSON.parse(line.slice('download:'.length)) as {
+    const data = JSON.parse(line) as {
       downloaded_bytes?: number;
       total_bytes?: number;
       total_bytes_estimate?: number;
       speed?: number;
       eta?: number;
     };
+    if (data.downloaded_bytes === undefined) return null; // ilerleme dışı bir JSON satırı
     const total = data.total_bytes ?? data.total_bytes_estimate;
     const percent =
       total && data.downloaded_bytes !== undefined
