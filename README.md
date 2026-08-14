@@ -13,6 +13,7 @@ Runs on macOS, Windows and Linux. Built with Electron, React and TypeScript.
 
 - [Features](#features)
 - [Installation](#installation)
+  - [Opening an unsigned build](#opening-an-unsigned-build)
 - [First launch](#first-launch)
 - [Usage](#usage)
   - [Download form](#download-form)
@@ -33,6 +34,7 @@ Runs on macOS, Windows and Linux. Built with Electron, React and TypeScript.
 - [Building installers](#building-installers)
 - [Releasing](#releasing)
   - [Per-platform versioning](#per-platform-versioning)
+- [Code signing](#code-signing)
 - [Security](#security)
 - [Troubleshooting](#troubleshooting)
 - [Licenses](#licenses)
@@ -63,10 +65,30 @@ platform on the [releases page](https://github.com/caslanqa/youtube_downloader/r
 | Debian/Ubuntu | `youtube-downloader_<version>_amd64.deb` |
 | Fedora/RHEL | `youtube-downloader-<version>-1.x86_64.rpm` |
 
-The installers are **not code-signed**, so the operating system warns on first launch:
+### Opening an unsigned build
 
-- **macOS**: right-click the app → *Open* → confirm. (Gatekeeper blocks a plain double-click.)
-- **Windows**: SmartScreen shows *More info* → *Run anyway*.
+The installers are **not code-signed** (see [Code signing](#code-signing) for why), so the
+operating system blocks them on first launch. This is a one-time step per install.
+
+**macOS.** Gatekeeper refuses a plain double-click.
+
+1. Right-click (or Control-click) the app in Finder → **Open** → **Open** again in the dialog.
+2. On macOS 15 and newer that option may not appear. Try to open the app once, then go to
+   **System Settings → Privacy & Security**, scroll to the message about the blocked app and
+   press **Open Anyway**.
+3. If macOS claims the app *"is damaged and can't be opened"*, it is the quarantine attribute
+   rather than actual damage. Clear it and open the app again:
+
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/YouTube Downloader.app"
+   ```
+
+**Windows.** SmartScreen shows a blue dialog: **More info → Run anyway**. If the installer
+does nothing at all, right-click it → **Properties** → tick **Unblock** → **OK**, then run it
+again.
+
+**Linux.** `.deb` and `.rpm` files installed directly are not signature-checked, so nothing
+special is needed. `rpm -i` may warn about a missing signature; that warning is expected.
 
 ## First launch
 
@@ -318,6 +340,65 @@ A platform without any tag yet starts from the version in `package.json`. That f
 the starting point: a single field cannot represent three independent streams, so the workflow
 stamps the computed version into the build and never commits the change.
 
+## Code signing
+
+The published installers are **not signed**, because signing costs money on both platforms: an
+Apple Developer Program membership (99 USD/year) and a Windows code signing certificate
+(roughly 200–400 USD/year, or a subscription such as Azure Trusted Signing). Users can open an
+unsigned build with the one-time steps in
+[Opening an unsigned build](#opening-an-unsigned-build); this section is about
+turning signing on.
+
+Signing is configured in [`forge.config.ts`](forge.config.ts) and the credentials belong in
+repository secrets, wired through the `build` job of
+[`.github/workflows/release.yml`](.github/workflows/release.yml).
+
+**macOS — Developer ID plus notarization.**
+
+1. Join the Apple Developer Program and create a **Developer ID Application** certificate.
+2. Create an [app-specific password](https://support.apple.com/en-us/102654) for notarization.
+3. Add to `packagerConfig`:
+
+   ```ts
+   osxSign: {},
+   osxNotarize: {
+     appleId: process.env.APPLE_ID,
+     appleIdPassword: process.env.APPLE_PASSWORD, // app-specific password, not your Apple ID password
+     teamId: process.env.APPLE_TEAM_ID,
+   },
+   ```
+
+4. In CI, import the certificate into a temporary keychain before `npm run make` (for example
+   with `apple-actions/import-codesign-certs`) and pass `APPLE_ID`, `APPLE_PASSWORD` and
+   `APPLE_TEAM_ID` from secrets to the build step. Notarization uploads the app to Apple and
+   usually adds a few minutes to the macOS job.
+
+   Only the app bundle is signed and notarized. yt-dlp, ffmpeg and deno are downloaded at
+   runtime rather than shipped inside the bundle, so they never need to be stapled — and the
+   app already clears their quarantine attribute after downloading them.
+
+**Windows — certificate or cloud signing.**
+
+Since 2023 the certificate's private key must live on a hardware token or in a cloud HSM, so
+an unattended CI build effectively needs a cloud signing service.
+
+- *Cloud signing* (Azure Trusted Signing, SSL.com eSigner): write a `windowsSign` helper and
+  reference it from both `packagerConfig.windowsSign` and `MakerSquirrel`.
+- *Traditional `.pfx` file* (only workable where the key can be exported):
+
+  ```ts
+  new MakerSquirrel({
+    certificateFile: process.env.WINDOWS_CERTIFICATE_FILE,
+    certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD,
+  }, ['win32']),
+  ```
+
+Note that a brand-new certificate still triggers SmartScreen until it builds up reputation;
+an EV certificate skips that waiting period.
+
+**Linux.** Nothing to sign for direct `.deb`/`.rpm` downloads. Signing only becomes relevant if
+the packages are published through an apt or dnf repository, which needs a GPG key instead.
+
 ## Security
 
 - The renderer runs with `contextIsolation`, `sandbox` and without `nodeIntegration`.
@@ -350,8 +431,9 @@ restart; the latest release is fetched again on the next launch.
 This usually means deno is not available, so yt-dlp cannot solve YouTube's JavaScript
 challenges. Check whether `deno` exists in the app's `bin/` directory.
 
-**macOS refuses to open the app.**
-Right-click the app and choose *Open*; the installers are unsigned.
+**macOS refuses to open the app, or says it is damaged.**
+The installers are unsigned; "damaged" is the quarantine attribute rather than a broken
+download. See [Opening an unsigned build](#opening-an-unsigned-build).
 
 ## Licenses
 
