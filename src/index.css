@@ -1,1 +1,67 @@
 @import 'tailwindcss';
+
+/* Tema, `data-theme` özniteliğiyle sürülür; 'system' seçimi renderer'da çözülüp
+   'light' | 'dark' olarak yazılır (bkz. src/renderer/theme.ts). */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Anlamsal tokenlar: bileşenler ham renk değil bu adları kullanır, böylece tema
+   değişimi tek yerden olur ve hiçbir bileşende `dark:` varyantı gerekmez.
+   Kontrastlar WCAG 1.4.3 (metin 4.5:1) ve 1.4.11 (kenarlık/kontrol 3:1) hedefine göre seçildi. */
+@theme {
+  --color-surface: #f4f4f5;
+  --color-panel: #ffffff;
+  --color-line: #71717a;
+  --color-line-soft: #e4e4e7;
+  --color-ink: #18181b;
+  --color-muted: #52525b;
+  --color-brand: #dc2626;
+  --color-brand-hover: #b91c1c;
+  --color-ok: #15803d;
+  --color-danger: #b91c1c;
+  --color-track: #e4e4e7;
+}
+
+[data-theme='dark'] {
+  --color-surface: #09090b;
+  --color-panel: #18181b;
+  --color-line: #71717a;
+  --color-line-soft: #27272a;
+  --color-ink: #fafafa;
+  --color-muted: #a1a1aa;
+  --color-brand: #dc2626;
+  --color-brand-hover: #ef4444;
+  --color-ok: #4ade80;
+  --color-danger: #f87171;
+  --color-track: #3f3f46;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  [data-theme='dark'] {
+    color-scheme: dark; /* native kaydırma çubuğu ve form kontrolleri de koyu olsun */
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+  }
+
+  /* WCAG 2.4.7: her odaklanabilir öğede görünür odak halkası. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  /* WCAG 2.3.3 / V5: hareket azaltma tercihi olan kullanıcıda geçişler kapanır. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
