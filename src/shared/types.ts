@@ -3,7 +3,7 @@
 
 export type BinaryState =
   | { kind: 'checking' }
-  | { kind: 'downloading'; name: 'yt-dlp' | 'ffmpeg'; percent: number }
+  | { kind: 'downloading'; name: 'yt-dlp' | 'ffmpeg' | 'deno'; percent: number }
   | { kind: 'ready'; ytdlpVersion: string; ffmpegVersion: string }
   | { kind: 'failed'; message: string };
 

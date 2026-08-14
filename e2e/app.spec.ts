@@ -9,6 +9,7 @@ const REPO_ROOT = path.join(__dirname, '..');
 const MAIN = path.join(REPO_ROOT, '.vite', 'build', 'main.js');
 const FAKE_YTDLP = path.join(__dirname, 'fixtures', 'fake-ytdlp.js');
 const FAKE_FFMPEG = path.join(__dirname, 'fixtures', 'fake-ffmpeg.js');
+const FAKE_DENO = path.join(__dirname, 'fixtures', 'fake-deno.js');
 
 let app: ElectronApplication;
 let page: Page;
@@ -33,7 +34,7 @@ test.beforeAll(async () => {
     }),
   );
 
-  for (const fixture of [FAKE_YTDLP, FAKE_FFMPEG]) fs.chmodSync(fixture, 0o755);
+  for (const fixture of [FAKE_YTDLP, FAKE_FFMPEG, FAKE_DENO]) fs.chmodSync(fixture, 0o755);
 
   app = await electron.launch({
     args: [MAIN, `--user-data-dir=${userDataDir}`],
@@ -41,6 +42,7 @@ test.beforeAll(async () => {
       ...process.env,
       YTDL_YTDLP_PATH: FAKE_YTDLP,
       YTDL_FFMPEG_PATH: FAKE_FFMPEG,
+      YTDL_DENO_PATH: FAKE_DENO, // gerçek deno indirmesi testte tetiklenmesin
     },
   });
   page = await app.firstWindow();

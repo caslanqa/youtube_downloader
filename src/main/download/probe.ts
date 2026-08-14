@@ -1,5 +1,6 @@
 // Video/oynatma listesi bilgisini indirmeden alır (`-J --flat-playlist`). bkz. docs/PLAN.md §5, §8.
 import { spawn } from 'node:child_process';
+import { spawnEnv } from '../binaries/runtimeEnv';
 import type { MediaInfo } from '../../shared/types';
 import { validateUrl } from './validate';
 
@@ -39,7 +40,7 @@ function bestThumbnail(...candidates: (RawEntry | undefined)[]): string | undefi
 
 function runYtDlp(ytdlpPath: string, args: string[], timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(ytdlpPath, args);
+    const proc = spawn(ytdlpPath, args, { env: spawnEnv() });
     let stdout = '';
     let stderr = '';
     const timer = setTimeout(() => {

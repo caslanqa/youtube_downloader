@@ -290,7 +290,16 @@ Yani **ek bir binary indirmeden** (deno paketlemeden) bu gereksinim karşılanab
 
 Uyarı gerçek: JS runtime olmadan formatların bir kısmı hiç listelenmiyor ve eksilenler arasında mp4/m4a var — yani en çok MP4 profili (`bestvideo[ext=mp4]+bestaudio[ext=m4a]`) etkileniyor.
 
-**Neden hâlâ açılmadı:** Paketlenmiş uygulamada `RunAsNode: false` fuse'u bu modu kapatıyor (bkz. §15/6). Fuse'u açmak uygulama ikilisini genel amaçlı Node yorumlayıcısına çevirir; bu güvenlik ödünü verilmeden önce alternatif (deno ikilisini yt-dlp gibi indirip yönetmek) değerlendirilmeli. Karar kullanıcıya bırakıldı.
+**Karar: deno, yt-dlp gibi yönetilir.** Electron'un kendi Node'unu kullanmak paketlenmiş uygulamada `RunAsNode: false` fuse'unu açmayı gerektiriyordu; bu, uygulama ikilisini genel amaçlı bir Node yorumlayıcısına çevirir (makinede kod çalıştırabilen bir saldırgan için imzalı bir yaşama aracı). Bunun yerine deno ikilisi ilk açılışta `userData/bin/` altına iniyor:
+
+- Asset adı hedef üçlüsüyle kurulur: `deno-<arch>-<platform>.zip` (ör. `deno-aarch64-apple-darwin.zip`), her asset'in kendi `.zip.sha256sum` dosyası doğrulanır — yt-dlp'deki tek `SHA2-256SUMS` dosyasından farklı
+- Arşiv açma işletim sisteminin kendi aracıyla yapılır (`unzip`, Windows'ta `Expand-Archive`) — ek bağımlılık yok
+- yt-dlp runtime'ı PATH üzerinden bulur; indirilen deno'nun klasörü alt süreçlerin PATH'inin başına eklenir (`src/main/binaries/runtimeEnv.ts`), böylece her spawn çağrısına yol parametresi taşımak gerekmez
+- **En iyi çaba:** deno inemezse hazırlık düşmez, uygulama JS runtime olmadan devam eder (bazı formatlar listelenmez). Tek bir indirmenin uygulamayı kullanılamaz hale getirmesi kabul edilebilir değil
+
+Bedeli: ilk açılışta ~37 MB ek indirme (arşivden çıkınca diskte ~81 MB) ve yönetilecek ikinci bir binary.
+
+Doğrulandı (macOS arm64, deno 2.9.5): indirme + checksum + arşiv açma zinciri çalışıyor ve yt-dlp runtime'ı PATH'ten buluyor — `[youtube] [jsc:deno] Solving JS challenges using deno`, listelenen format 31 → 37.
 
 ### Komut çalıştırma (enjeksiyon güvenliği)
 
@@ -491,7 +500,7 @@ Geliştirme sırasında netleştirilecek, planı bloklamayan konular:
 3. Arayüz dili: İngilizce mi Türkçe mi başlanacak (i18n yapısı her hâlükârda hazır bırakılır).
 4. `legacy/` Faz 7'de gerçekten silinsin mi, yoksa arşiv olarak kalsın mı?
 5. Auto-update (electron-updater) ne zaman devreye girsin — imzalama olmadan macOS'ta çalışmıyor.
-6. yt-dlp JS runtime'ı (`--js-runtimes node:<electron>` + `ELECTRON_RUN_AS_NODE=1`) açılsın mı? Teknik olarak çalıştığı doğrulandı; açık/kapalı indirme başarısı karşılaştırması yapılmadı (bkz. §6). **Ek kısıt:** `forge.config.ts` içindeki `RunAsNode: false` fuse'u paketlenmiş uygulamada bu modu kapatır. Fuse'u açmak, uygulama ikilisinin genel amaçlı bir Node yorumlayıcısı olarak kullanılabilmesi demektir — güvenlik ödünü. Alternatif: deno ikilisini yt-dlp gibi indirip yönetmek (installer'ı büyütmez, indirme akışı zaten var).
+6. ~~yt-dlp JS runtime'ı~~ **Karara bağlandı (Faz 5):** deno ikilisi yt-dlp gibi indirilip yönetiliyor; `RunAsNode` fuse'u kapalı kalıyor. Ayrıntı ve ölçüm için bkz. §6.
 
 ---
 

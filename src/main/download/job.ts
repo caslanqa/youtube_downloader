@@ -3,6 +3,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { spawnEnv } from '../binaries/runtimeEnv';
 import type { JobRequest, JobStatus } from '../../shared/types';
 import { OUTPUT_TEMPLATE, PROFILES } from './formats';
 import { resolveDestination, validateUrl } from './validate';
@@ -105,7 +106,8 @@ export function startJob(
 
     const args = buildArgs(request, outputDir, ffmpegPath);
     // shell: true KULLANILMAZ — argümanlar dizi olarak geçirilir (docs/PLAN.md §11).
-    const proc = spawn(ytdlpPath, args);
+    // spawnEnv: yt-dlp'nin JS runtime'ı (deno) PATH üzerinden bulunur.
+    const proc = spawn(ytdlpPath, args, { env: spawnEnv() });
     running.set(jobId, { process: proc, cancelled: false });
 
     let lastPercent = 0;

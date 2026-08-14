@@ -10,6 +10,13 @@ npm install
 npm start
 ```
 
+## İlk açılış
+
+Uygulama, ihtiyaç duyduğu araçları kendisi indirir (checksum doğrulamalı, `userData/bin/` altına):
+`yt-dlp` (~38 MB) ve `deno` (~37 MB indirme, açıldığında ~81 MB — yt-dlp'nin YouTube
+çıkarımı için gereken JavaScript runtime'ı). `ffmpeg` uygulamayla birlikte gelir.
+deno inemezse uygulama çalışmaya devam eder, yalnızca bazı video formatları listelenmez.
+
 ## Testler
 
 ```bash
