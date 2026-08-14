@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import pngToIco from 'png-to-ico';
 
-const source = process.argv[2] ?? 'legacy/src/main/resources/icons/ytdownload.png';
+const source = process.argv[2] ?? 'resources/icon-source.png';
 const outDir = 'resources';
 const tmpIconset = path.join(outDir, 'icon.iconset');
 

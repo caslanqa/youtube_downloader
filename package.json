@@ -1,7 +1,7 @@
 {
   "name": "youtube-downloader",
   "productName": "YouTube Downloader",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "YouTube video/playlist indirici (Electron + React)",
   "main": ".vite/build/main.js",
   "private": true,

@@ -91,10 +91,6 @@ typings/
 # Electron-Forge
 out/
 
-# Legacy Java (JavaFX) app
-legacy/target/
-legacy/.mvn/
-!legacy/.mvn/wrapper/maven-wrapper.jar
 .idea/
 *.iml
 

@@ -3,7 +3,7 @@ import type { BinaryState, Job, JobRequest, MediaInfo, Settings } from '../share
 import { DownloadForm } from './components/DownloadForm';
 import { PrepScreen } from './components/PrepScreen';
 import { QueueList } from './components/QueueList';
-import { SettingsDialog } from './components/SettingsDialog';
+import { SETTINGS_POPOVER_ID, SettingsPopover } from './components/SettingsPopover';
 import { LanguageProvider, useT } from './i18n';
 import { useAppliedTheme } from './theme';
 
@@ -77,7 +77,6 @@ function Workspace({
   onEnqueue: (request: JobRequest, info: MediaInfo | null) => Promise<void>;
 }) {
   const t = useT();
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <main className="min-h-screen px-6 py-10">
@@ -91,28 +90,18 @@ function Workspace({
           </div>
           <button
             type="button"
-            onClick={() => setSettingsOpen(true)}
+            popoverTarget={SETTINGS_POPOVER_ID}
             aria-label={t('settingsOpen')}
-            className="rounded-lg border border-line-soft p-2.5 text-muted transition-colors hover:bg-panel hover:text-ink"
+            className="settings-anchor rounded-lg border border-line-soft p-2.5 text-muted transition-colors hover:bg-panel hover:text-ink"
           >
             <GearIcon />
           </button>
+          <SettingsPopover settings={settings} onChange={onPatch} />
         </header>
 
-        <DownloadForm
-          settings={settings}
-          onFormatChange={(format) => onPatch({ defaultFormat: format })}
-          onEnqueue={onEnqueue}
-        />
+        <DownloadForm settings={settings} onPatch={onPatch} onEnqueue={onEnqueue} />
         <QueueList jobs={jobs} />
       </div>
-
-      <SettingsDialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        settings={settings}
-        onChange={onPatch}
-      />
     </main>
   );
 }

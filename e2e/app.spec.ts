@@ -72,9 +72,16 @@ test('bağlantı incelenir, iş kuyruğa alınır ve tamamlanır', async () => {
   expect(fs.existsSync(path.join(destination, 'E2E Albüm', 'Sahte Test Videosu.mp3'))).toBe(true);
 });
 
-test('ayarlar diyaloğu açılır ve dil değişimi arayüze yansır', async () => {
-  await page.getByRole('button', { name: 'Ayarları aç' }).click();
+test('ayarlar dişli düğmesinin altında açılır ve dil değişimi arayüze yansır', async () => {
+  const gear = page.getByRole('button', { name: 'Ayarları aç' });
+  await gear.click();
   await expect(page.getByRole('heading', { name: 'Ayarlar' })).toBeVisible();
+
+  // Açılır kutu düğmenin ALTINDA ve sağa hizalı olmalı (ekranın ortasında değil).
+  const gearBox = (await gear.boundingBox())!;
+  const popoverBox = (await page.locator('#settings-popover').boundingBox())!;
+  expect(popoverBox.y).toBeGreaterThanOrEqual(gearBox.y + gearBox.height);
+  expect(Math.abs(popoverBox.x + popoverBox.width - (gearBox.x + gearBox.width))).toBeLessThan(2);
 
   await page.getByLabel('Dil').selectOption('en');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();

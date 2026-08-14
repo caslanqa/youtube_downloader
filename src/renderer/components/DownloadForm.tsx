@@ -2,16 +2,16 @@ import { useState } from 'react';
 import type { Format, JobRequest, MediaInfo, Settings } from '../../shared/types';
 import { useT } from '../i18n';
 import { useProbe } from '../useProbe';
-import { BUTTON_PRIMARY, FIELD, LABEL, PANEL } from '../ui';
+import { BUTTON_PRIMARY, BUTTON_QUIET, FIELD, LABEL, PANEL } from '../ui';
 import { ProbePreview } from './ProbePreview';
 
 export function DownloadForm({
   settings,
-  onFormatChange,
+  onPatch,
   onEnqueue,
 }: {
   settings: Settings;
-  onFormatChange: (format: Format) => void;
+  onPatch: (partial: Partial<Settings>) => void;
   onEnqueue: (request: JobRequest, info: MediaInfo | null) => Promise<void>;
 }) {
   const t = useT();
@@ -68,7 +68,7 @@ export function DownloadForm({
           <select
             id="format"
             value={settings.defaultFormat}
-            onChange={(event) => onFormatChange(event.target.value as Format)}
+            onChange={(event) => onPatch({ defaultFormat: event.target.value as Format })}
             className={FIELD}
           >
             <option value="mp3">{t('formatMp3')}</option>
@@ -94,6 +94,25 @@ export function DownloadForm({
       <p id="album-hint" className="mt-1.5 text-xs text-muted">
         {t('albumHint')}
       </p>
+
+      <div className="mt-4">
+        <label className={LABEL} htmlFor="destination">
+          {t('destinationLabel')}
+        </label>
+        <div className="flex gap-2">
+          <input id="destination" type="text" readOnly value={settings.destination} className={`${FIELD} text-muted`} />
+          <button
+            type="button"
+            onClick={async () => {
+              const picked = await window.api.pickFolder();
+              if (picked) onPatch({ destination: picked });
+            }}
+            className={`${BUTTON_QUIET} shrink-0`}
+          >
+            {t('destinationPick')}
+          </button>
+        </div>
+      </div>
 
       <button type="submit" className={`${BUTTON_PRIMARY} mt-5 w-full`}>
         {t('submit')}

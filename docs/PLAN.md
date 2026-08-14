@@ -135,7 +135,9 @@ webPreferences: {
 
 ### Eski Java kodu
 
-`legacy/` klasörüne taşınır ve README'de "v1, JavaFX" olarak işaretlenir. Tamamen silmek yerine taşımanın nedeni: yt-dlp argüman seçimleri ve klasör düzeni referans olarak lazım. Faz 6 sonunda (yeni sürüm üç platformda doğrulandıktan sonra) silinir; git geçmişinde kalır.
+Önce `legacy/` klasörüne taşındı (yt-dlp argüman seçimleri ve klasör düzeni referans olarak lazımdı), **Faz 7'de kaldırıldı** — git geçmişinde duruyor. Uygulama ikonunun 4000×4000 kaynağı silinmeden önce `resources/icon-source.png` olarak korundu.
+
+Not: plan bu silmeyi "üç platformda doğrulandıktan sonra" diye koşullamıştı; Windows ve Linux yükleyicileri CI'nin ilk sürüm derlemesine kadar üretilmemiş olacak. Silme yine de yapıldı, çünkü Java kaynakları git geçmişinden bire bir geri alınabilir ve yeni sürümün doğruluğu onlara bakmayı gerektirmiyor.
 
 ---
 
@@ -382,7 +384,8 @@ Davranış kuralları:
 - Hata kartında "Detay" son 50 satır yt-dlp çıktısını gösterir — sessiz hata yok.
 - İlk açılışta binary indirme durumu tam ekran bir hazırlık adımı olarak gösterilir; hazır olana kadar İndir devre dışı.
 - Açık/koyu tema, sistem tercihine uyar (`prefers-color-scheme`).
-- Ayarlar başlıktaki dişli düğmesinin altında, native `<dialog>` içinde: Escape ile kapanma, odak tuzağı ve kapanınca odağın düğmeye dönmesi tarayıcıdan gelir — elle odak yönetimi yazılmaz.
+- Ayarlar başlıktaki dişli düğmesinin **altında** açılan native Popover (`popover="auto"` + CSS anchor positioning) içinde: açma/kapama, dışarı tıklayınca kapanma, Escape ve odağın düğmeye dönmesi tarayıcıdan gelir — React state'i ve elle odak yönetimi yazılmaz. Konumun gerçekten düğmenin altında ve sağa hizalı olduğu uçtan uca testte ölçülüyor (modal olarak ekranın ortasında açılması bilinen bir regresyon biçimi).
+- Hedef klasör ayarlarda değil, indirme formunda: indirme anında görülüp değiştirilebilmeli. Seçim ayarlara yazılır, sonraki indirmelerde varsayılan olur.
 - Arayüz dili Türkçe/İngilizce; seçim `<html lang>` özniteliğine de yansır.
 
 ### Erişilebilirlik (baştan, sonradan eklenmez)
@@ -492,6 +495,8 @@ Her faz sonunda uygulama çalışır durumda olur — yarım bırakılmış katm
 | YouTube tarafındaki değişiklikler indirmeyi bozar | Uygulama işlevsiz kalır | yt-dlp otomatik güncelleme (24 saatlik kontrol) tam da bunun için |
 | Electron ile ~150 MB'lık uygulama, JavaFX'e göre büyük | Disk / indirme | Kabul edilir; runtime bağımlılığı olmaması karşılığında |
 | Telif / kullanım şartları | Hukuki | README'de kullanım sorumluluğu notu; uygulama DRM aşma özelliği içermez |
+| Yükleyici GPL lisanslı ffmpeg içeriyor (`ffmpeg-static`), depo kodu MIT | Hukuki | Kendi kodun lisansı değişmez (ffmpeg ayrı süreç olarak çağrılıyor) ama aynı yükleyicide dağıtıldığı için GPL bildirimi ve kaynak erişimi gerekir — README'ye eklendi. Tamamen kaçınmak istenirse ffmpeg de yt-dlp/deno gibi çalışma zamanında indirilebilir (bkz. §6-B) |
+| Uygulama ikonu YouTube marka işaretine benziyor | Marka | Kişisel kullanımda sorun değil; genel dağıtımda özgün bir ikon tasarlanmalı |
 
 ---
 
@@ -502,7 +507,7 @@ Geliştirme sırasında netleştirilecek, planı bloklamayan konular:
 1. Uygulama adı ve bundle identifier (`com.caslanqa.ytdownloader` öneri).
 2. İkon: mevcut `ytdownload.png` yeniden mi kullanılacak, yeni tasarım mı?
 3. ~~Arayüz dili~~ **Karara bağlandı:** Türkçe ve İngilizce birlikte. Sözlük tek dosyada (`src/renderer/i18n.tsx`), kütüphane yok; ilk açılışta sistem diline göre seçilir, ayarlardan değiştirilir. **Bilinen boşluk:** main sürecinden gelen hata mesajları (ör. "Desteklenmeyen host") henüz Türkçe sabit — çevrilmeleri için hata kodlarına dönüştürülmeleri gerekiyor.
-4. `legacy/` Faz 7'de gerçekten silinsin mi, yoksa arşiv olarak kalsın mı?
+4. ~~`legacy/` silinsin mi~~ **Karara bağlandı (Faz 7):** silindi; git geçmişi arşiv görevini görüyor.
 5. Auto-update (electron-updater) ne zaman devreye girsin — imzalama olmadan macOS'ta çalışmıyor.
 6. ~~yt-dlp JS runtime'ı~~ **Karara bağlandı (Faz 5):** deno ikilisi yt-dlp gibi indirilip yönetiliyor; `RunAsNode` fuse'u kapalı kalıyor. Ayrıntı ve ölçüm için bkz. §6.
 

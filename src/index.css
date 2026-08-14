@@ -55,6 +55,22 @@
     outline-offset: 2px;
   }
 
+  /* Ayarlar açılır kutusu dişli düğmesinin altına, sağa hizalı açılır.
+     CSS anchor positioning kullanılıyor; popover varsayılan `inset: 0; margin: auto`
+     kuralı ekranın ortasına yerleştirdiği için bunlar açıkça sıfırlanmalı. */
+  .settings-anchor {
+    anchor-name: --settings-anchor;
+  }
+
+  .settings-popover {
+    position: absolute;
+    position-anchor: --settings-anchor;
+    inset: auto;
+    margin: 0;
+    top: calc(anchor(bottom) + 0.5rem);
+    right: anchor(right);
+  }
+
   /* WCAG 2.3.3 / V5: hareket azaltma tercihi olan kullanıcıda geçişler kapanır. */
   @media (prefers-reduced-motion: reduce) {
     *,
