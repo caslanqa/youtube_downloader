@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-// Birim/entegrasyon testleri yalnızca src altında; e2e/ Playwright'a ait.
+// Unit and integration tests live under src; e2e/ belongs to Playwright.
 export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],

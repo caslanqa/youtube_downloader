@@ -5,12 +5,12 @@ import { setDenoDirectory, spawnEnv } from './runtimeEnv';
 afterEach(() => setDenoDirectory(null));
 
 describe('spawnEnv', () => {
-  it('deno yoksa süreç ortamını olduğu gibi verir', () => {
+  it('returns the process environment untouched when deno is missing', () => {
     setDenoDirectory(null);
     expect(spawnEnv()).toBe(process.env);
   });
 
-  it('deno varsa klasörünü PATH başına ekler', () => {
+  it('prepends deno\'s directory to PATH when available', () => {
     setDenoDirectory(path.join('/tmp', 'bin', 'deno'));
     const env = spawnEnv();
     expect(env.PATH?.startsWith(`${path.join('/tmp', 'bin')}${path.delimiter}`)).toBe(true);

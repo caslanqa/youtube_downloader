@@ -4,8 +4,8 @@ import type { MediaInfo } from '../shared/types';
 const PROBE_DEBOUNCE_MS = 600;
 
 /**
- * URL yazıldıkça indirmeden önce başlık/kapak/öğe sayısı bilgisini çeker
- * (bkz. docs/PLAN.md §8). Her tuş vuruşunda yt-dlp süreci başlatmamak için gecikmeli.
+ * Fetches title, thumbnail and item count while the URL is typed, before anything is
+ * downloaded (docs/PLAN.md §8). Debounced so no yt-dlp process starts on every keystroke.
  */
 export function useProbe(url: string) {
   const [info, setInfo] = useState<MediaInfo | null>(null);

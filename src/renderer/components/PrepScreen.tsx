@@ -1,7 +1,7 @@
 import type { BinaryState } from '../../shared/types';
 import { useT } from '../i18n';
 
-/** Binary'ler hazır olana kadar gösterilen hazırlık ekranı (bkz. docs/PLAN.md §8). */
+/** Preparation screen shown until the binaries are ready (docs/PLAN.md §8). */
 export function PrepScreen({ state }: { state: Exclude<BinaryState, { kind: 'ready' }> }) {
   const t = useT();
   const label =

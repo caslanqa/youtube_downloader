@@ -1,8 +1,8 @@
-// Uygulama ikonlarını tek kaynak PNG'den üretir: resources/icon.{png,icns,ico}
-// Kullanım: node scripts/make-icons.mjs [kaynak.png]
+// Generates the application icons from a single source PNG: resources/icon.{png,icns,ico}
+// Usage: node scripts/make-icons.mjs [source.png]
 //
-// icns üretimi macOS araçlarına (sips, iconutil) bağlı — ikonlar üretildikten sonra
-// depoya işlendiği için diğer platformlarda derleme yaparken bu script gerekmiyor.
+// icns generation relies on macOS tools (sips, iconutil). The generated icons are committed,
+// so builds on other platforms never need to run this script.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,7 +18,7 @@ function resize(size, destination) {
   execFileSync('sips', ['-z', String(size), String(size), source, '--out', destination], { stdio: 'ignore' });
 }
 
-// macOS .icns: iconutil sabit isimlendirme bekler (retina varyantları dahil).
+// macOS .icns: iconutil expects fixed file names, including the retina variants.
 for (const size of [16, 32, 64, 128, 256, 512]) {
   resize(size, path.join(tmpIconset, `icon_${size}x${size}.png`));
   resize(size * 2, path.join(tmpIconset, `icon_${size}x${size}@2x.png`));
@@ -26,10 +26,10 @@ for (const size of [16, 32, 64, 128, 256, 512]) {
 execFileSync('iconutil', ['-c', 'icns', tmpIconset, '-o', path.join(outDir, 'icon.icns')]);
 fs.rmSync(tmpIconset, { recursive: true, force: true });
 
-// Linux ve pencere ikonu için tek PNG.
+// Single PNG for Linux and the window icon.
 resize(512, path.join(outDir, 'icon.png'));
 
-// Windows .ico: birden çok çözünürlük tek dosyada.
+// Windows .ico: several resolutions in one file.
 const icoSizes = [16, 24, 32, 48, 64, 128, 256];
 const icoSources = icoSizes.map((size) => {
   const file = path.join(outDir, `.ico-${size}.png`);
@@ -39,4 +39,4 @@ const icoSources = icoSizes.map((size) => {
 fs.writeFileSync(path.join(outDir, 'icon.ico'), await pngToIco(icoSources));
 for (const file of icoSources) fs.rmSync(file, { force: true });
 
-console.log('İkonlar üretildi:', fs.readdirSync(outDir).join(', '));
+console.log('Icons generated:', fs.readdirSync(outDir).join(', '));

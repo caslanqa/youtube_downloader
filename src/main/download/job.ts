@@ -1,4 +1,4 @@
-// yt-dlp süreç yönetimi: spawn, ilerleme ayrıştırma, iptal. bkz. docs/PLAN.md §5-7, §11.
+// yt-dlp process handling: spawn, progress parsing, cancellation. See docs/PLAN.md §5-7, §11.
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs/promises';
@@ -35,9 +35,9 @@ function formatEta(seconds: number | null | undefined): string | undefined {
 }
 
 /**
- * yt-dlp'nin ilerleme satırını ayrıştırır. `--progress-template "download:%(progress)j"`
- * içindeki `download:` bir TİP seçicidir ve çıktıya yazılmaz — satırlar çıplak JSON gelir
- * (yt-dlp 2026.07.04 ile doğrulandı). Tanınmayan satırlar için null döner.
+ * Parses a yt-dlp progress line. In `--progress-template "download:%(progress)j"` the
+ * `download:` prefix is a TYPE selector and is never printed, so lines arrive as bare JSON
+ * (verified against yt-dlp 2026.07.04). Returns null for lines it does not recognise.
  */
 export function parseProgressLine(line: string): ParsedProgress | null {
   if (!line.startsWith('{')) return null;
@@ -49,7 +49,7 @@ export function parseProgressLine(line: string): ParsedProgress | null {
       speed?: number;
       eta?: number;
     };
-    if (data.downloaded_bytes === undefined) return null; // ilerleme dışı bir JSON satırı
+    if (data.downloaded_bytes === undefined) return null; // a JSON line that is not progress
     const total = data.total_bytes ?? data.total_bytes_estimate;
     const percent =
       total && data.downloaded_bytes !== undefined
@@ -105,8 +105,8 @@ export function startJob(
     await fs.mkdir(outputDir, { recursive: true });
 
     const args = buildArgs(request, outputDir, ffmpegPath);
-    // shell: true KULLANILMAZ — argümanlar dizi olarak geçirilir (docs/PLAN.md §11).
-    // spawnEnv: yt-dlp'nin JS runtime'ı (deno) PATH üzerinden bulunur.
+    // shell: true is NEVER used; arguments are passed as an array (docs/PLAN.md §11).
+    // spawnEnv makes yt-dlp's JS runtime (deno) discoverable through PATH.
     const proc = spawn(ytdlpPath, args, { env: spawnEnv() });
     running.set(jobId, { process: proc, cancelled: false });
 
@@ -150,7 +150,7 @@ export function startJob(
           const files = await fs.readdir(outputDir).catch(() => [] as string[]);
           onUpdate({ kind: 'done', outputDir, fileCount: files.length });
         } else {
-          onUpdate({ kind: 'error', message: `yt-dlp kod ${code} ile sonlandı`, logTail: stderrTail.join('\n') });
+          onUpdate({ kind: 'error', message: `yt-dlp exited with code ${code}`, logTail: stderrTail.join('\n') });
         }
       })();
     });

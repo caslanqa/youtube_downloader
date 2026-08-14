@@ -16,22 +16,22 @@ const HOMEPAGE = 'https://github.com/caslanqa/youtube_downloader';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    // Uzantısız: packager platforma göre .icns / .ico seçer (bkz. scripts/make-icons.mjs).
+    // No extension: packager picks .icns / .ico per platform (see scripts/make-icons.mjs).
     icon: path.join('resources', 'icon'),
     appBundleId: 'com.caslanqa.ytdownloader',
     appCategoryType: 'public.app-category.utilities',
     win32metadata: { CompanyName: MAINTAINER_NAME },
-    // deb/rpm maker'ları çalıştırılabilir dosyayı paket adıyla arar; packager ise
-    // varsayılan olarak productName'i ("YouTube Downloader") kullanır ve Linux
-    // derlemesi "could not find the Electron app binary" ile düşer.
+    // The deb/rpm makers look for the executable under the package name, while packager
+    // defaults to productName ("YouTube Downloader"), which fails the Linux build with
+    // "could not find the Electron app binary".
     ...(process.platform === 'linux' ? { executableName: 'youtube-downloader' } : {}),
-    // ffmpeg, yt-dlp ve deno paketlenmez; çalışma zamanında indirilir (docs/PLAN.md §6).
+    // ffmpeg, yt-dlp and deno are not bundled; they are downloaded at runtime (docs/PLAN.md §6).
   },
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({ setupIcon: path.join('resources', 'icon.ico') }, ['win32']),
     new MakerDMG({ icon: path.join('resources', 'icon.icns') }, ['darwin']),
-    // ZIP yalnızca macOS için: ileride otomatik güncelleme (electron-updater) bu biçimi ister.
+    // ZIP is macOS only: a future auto-update setup (electron-updater) expects this format.
     new MakerZIP({}, ['darwin']),
     new MakerRpm(
       { options: { icon: path.join('resources', 'icon.png'), homepage: HOMEPAGE, license: 'MIT' } },

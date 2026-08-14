@@ -1,5 +1,5 @@
-// Paylaşılan sınıf dizileri. Bileşen soyutlaması değil, tekrar eden Tailwind
-// dizilerinin tek kaynağı — tokenlar için bkz. src/index.css.
+// Shared class strings. Not a component abstraction, just one place for the repeated Tailwind
+// sequences; the tokens themselves live in src/index.css.
 
 export const PANEL = 'rounded-xl border border-line-soft bg-panel p-6 shadow-sm';
 
@@ -16,5 +16,5 @@ export const BUTTON_PRIMARY =
 export const BUTTON_QUIET =
   'rounded-lg border border-line px-3 py-2 text-sm text-ink transition-colors hover:bg-surface';
 
-// WCAG 2.5.8: küçük metin bağlantı-buton hedefleri de en az 24x24 CSS px olmalı.
+// WCAG 2.5.8: even small text-button targets must be at least 24x24 CSS px.
 export const BUTTON_INLINE = 'rounded px-2 py-1 text-sm underline-offset-2 hover:underline';

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Uçtan uca testler için sahte yt-dlp: sürüm, probe (-J) ve indirme akışını taklit eder.
-// Çıktı biçimleri gerçek yt-dlp 2026.07.04 ile doğrulanmış olanlarla aynıdır.
+// Fake yt-dlp for the end-to-end tests: mimics the version, probe (-J) and download flows.
+// The output shapes match those verified against real yt-dlp 2026.07.04.
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -16,7 +16,7 @@ if (args.includes('-J')) {
     JSON.stringify({
       _type: 'video',
       id: 'abc123',
-      title: 'Sahte Test Videosu',
+      title: 'Fake Test Video',
       duration: 125,
       thumbnail: 'https://i.ytimg.com/vi/abc123/hqdefault.jpg',
     }),
@@ -28,7 +28,7 @@ const outputTemplate = args[args.indexOf('-o') + 1];
 const outputDir = path.dirname(outputTemplate);
 fs.mkdirSync(outputDir, { recursive: true });
 
-// Gerçek yt-dlp `--progress-template "download:%(progress)j"` ile çıplak JSON yazar.
+// With `--progress-template "download:%(progress)j"` real yt-dlp writes bare JSON lines.
 for (const downloaded of [250000, 750000, 1000000]) {
   process.stdout.write(
     `${JSON.stringify({
@@ -41,5 +41,5 @@ for (const downloaded of [250000, 750000, 1000000]) {
   );
 }
 
-fs.writeFileSync(path.join(outputDir, 'Sahte Test Videosu.mp3'), 'sahte ses');
+fs.writeFileSync(path.join(outputDir, 'Fake Test Video.mp3'), 'fake audio');
 process.exit(0);

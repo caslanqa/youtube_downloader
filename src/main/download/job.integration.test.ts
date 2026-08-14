@@ -1,6 +1,6 @@
-// Gerçek YouTube ağ erişimi bu ortamda mümkün değil (JS-challenge/bot koruması).
-// Bu yüzden job.ts'in spawn/ilerleme/iptal akışı sahte bir yt-dlp ikili ile uçtan uca doğrulanır.
-// bkz. docs/PLAN.md §10 (ağ testlerinin CI/sandbox'ta güvenilir çalışmayacağı notu).
+// Real YouTube network access is not dependable here (JS challenges, bot protection), so the
+// spawn/progress/cancel flow of job.ts is verified end to end against a fake yt-dlp binary.
+// See docs/PLAN.md §10 on why network tests do not belong in CI.
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,7 +21,7 @@ function makeRequest(destination: string): JobRequest {
   };
 }
 
-describe('startJob (sahte yt-dlp entegrasyonu)', () => {
+describe('startJob (fake yt-dlp integration)', () => {
   let tmpDir: string;
 
   beforeEach(async () => {
@@ -33,7 +33,7 @@ describe('startJob (sahte yt-dlp entegrasyonu)', () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('başarılı indirmede running -> done sırasıyla günceller ve dosya oluşturur', async () => {
+  it('reports running then done and writes the file on a successful download', async () => {
     process.env.FAKE_YTDLP_MODE = 'success';
     const updates: JobStatus[] = [];
     await new Promise<void>((resolve, reject) => {
@@ -52,7 +52,7 @@ describe('startJob (sahte yt-dlp entegrasyonu)', () => {
     expect(done).toMatchObject({ kind: 'done', fileCount: 1, outputDir: path.join(tmpDir, 'TestAlbum') });
   });
 
-  it('yt-dlp sıfır olmayan koddan çıkarsa stderr kuyruğuyla error döner', async () => {
+  it('reports an error with the stderr tail when yt-dlp exits non-zero', async () => {
     process.env.FAKE_YTDLP_MODE = 'fail';
     const status = await new Promise<JobStatus>((resolve) => {
       startJob('job-fail', makeRequest(tmpDir), FIXTURE, FAKE_FFMPEG, (s) => {
@@ -65,7 +65,7 @@ describe('startJob (sahte yt-dlp entegrasyonu)', () => {
     }
   });
 
-  it('iptal edilince süreç durur, cancelled bildirilir ve yarım dosyalar temizlenir', async () => {
+  it('stops the process, reports cancelled and cleans up partial files', async () => {
     process.env.FAKE_YTDLP_MODE = 'hang';
     const albumDir = path.join(tmpDir, 'TestAlbum');
     const finalStatus = await new Promise<JobStatus>((resolve) => {
@@ -83,7 +83,7 @@ describe('startJob (sahte yt-dlp entegrasyonu)', () => {
     expect(remaining.some((f) => f.endsWith('.part'))).toBe(false);
   }, 10000);
 
-  it('geçersiz URL için yt-dlp hiç spawn edilmeden error döner', async () => {
+  it('reports an error for a rejected URL without spawning yt-dlp', async () => {
     const request = { ...makeRequest(tmpDir), url: 'https://evil.example.com/video' };
     const status = await new Promise<JobStatus>((resolve) => {
       startJob('job-badurl', request, FIXTURE, FAKE_FFMPEG, resolve);

@@ -1,4 +1,4 @@
-// Video/oynatma listesi bilgisini indirmeden alır (`-J --flat-playlist`). bkz. docs/PLAN.md §5, §8.
+// Reads video/playlist metadata without downloading (`-J --flat-playlist`). See docs/PLAN.md §5, §8.
 import { spawn } from 'node:child_process';
 import { spawnEnv } from '../binaries/runtimeEnv';
 import type { MediaInfo } from '../../shared/types';
@@ -23,9 +23,9 @@ interface RawInfo extends RawEntry {
 }
 
 /**
- * Tekil videoda tek bir `thumbnail` alanı gelir; `--flat-playlist` öğelerinde ise
- * yalnızca `thumbnails` dizisi bulunur (yt-dlp 2026.07.04 ile doğrulandı).
- * Adaylar sırayla denenir, dizide en geniş görsel seçilir.
+ * A single video carries one `thumbnail` field, while `--flat-playlist` entries only carry a
+ * `thumbnails` array (verified against yt-dlp 2026.07.04). Candidates are tried in order and
+ * the widest image in an array wins.
  */
 function bestThumbnail(...candidates: (RawEntry | undefined)[]): string | undefined {
   for (const candidate of candidates) {
@@ -45,7 +45,7 @@ function runYtDlp(ytdlpPath: string, args: string[], timeoutMs: number): Promise
     let stderr = '';
     const timer = setTimeout(() => {
       proc.kill('SIGKILL');
-      reject(new Error('Video bilgisi alma zaman aşımına uğradı'));
+      reject(new Error('Timed out while reading video information'));
     }, timeoutMs);
 
     proc.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
@@ -57,12 +57,12 @@ function runYtDlp(ytdlpPath: string, args: string[], timeoutMs: number): Promise
     proc.on('close', (code) => {
       clearTimeout(timer);
       if (code === 0) resolve(stdout);
-      else reject(new Error(stderr.trim().split('\n').slice(-1)[0] || `yt-dlp kod ${code} ile sonlandı`));
+      else reject(new Error(stderr.trim().split('\n').slice(-1)[0] || `yt-dlp exited with code ${code}`));
     });
   });
 }
 
-/** URL'yi indirmeden başlık/kapak/süre/playlist bilgisini döner. */
+/** Returns title, thumbnail, duration and playlist information without downloading. */
 export async function probeUrl(url: string, ytdlpPath: string, timeoutMs = 20_000): Promise<MediaInfo> {
   validateUrl(url);
   const output = await runYtDlp(
@@ -76,7 +76,7 @@ export async function probeUrl(url: string, ytdlpPath: string, timeoutMs = 20_00
   const first = isPlaylist ? data.entries?.[0] : data;
   return {
     id: data.id ?? url,
-    title: (isPlaylist ? data.title : first?.title) ?? 'Bilinmeyen başlık',
+    title: (isPlaylist ? data.title : first?.title) ?? 'Unknown title',
     thumbnail: bestThumbnail(first, data),
     duration: isPlaylist ? undefined : first?.duration,
     isPlaylist,

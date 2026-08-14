@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-// Electron uygulaması tek örnek olarak başlatılır: paralel worker yok.
+// The Electron app runs as a single instance, so no parallel workers.
 export default defineConfig({
   testDir: './e2e',
   workers: 1,

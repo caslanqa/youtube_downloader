@@ -11,21 +11,21 @@ export function App() {
   const [binaries, setBinaries] = useState<BinaryState>({ kind: 'checking' });
   const [settings, setSettings] = useState<Settings | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  // Kuyruk bilgisi main tarafında tutulmuyor; probe sonucunu iş kimliğiyle burada eşliyoruz.
+  // The main process does not keep probe results, so they are matched to job ids here.
   const infoById = useRef(new Map<string, MediaInfo>());
 
-  const language = settings?.language ?? 'tr';
+  const language = settings?.language ?? 'en';
   useAppliedTheme(settings?.theme ?? 'system');
 
   useEffect(() => {
-    // Ekran okuyucunun doğru telaffuz etmesi için sayfa dili seçime uyar (WCAG 3.1.1).
+    // Keep the document language in sync so screen readers pronounce it correctly (WCAG 3.1.1).
     document.documentElement.lang = language;
   }, [language]);
 
   useEffect(() => {
     window.api.onBinaryState(setBinaries);
-    // 'failed' durumu manager tarafından onBinaryState ile zaten yayınlanır;
-    // burada sadece unhandled rejection oluşmasını önlüyoruz.
+    // The manager already broadcasts the 'failed' state through onBinaryState; this catch only
+    // prevents an unhandled rejection.
     window.api.ensureBinaries().catch(() => undefined);
     window.api.getSettings().then(setSettings).catch(() => undefined);
 
@@ -42,7 +42,7 @@ export function App() {
   }, []);
 
   async function patchSettings(partial: Partial<Settings>) {
-    setSettings((previous) => (previous ? { ...previous, ...partial } : previous)); // iyimser güncelleme
+    setSettings((previous) => (previous ? { ...previous, ...partial } : previous)); // optimistic update
     const saved = await window.api.setSettings(partial).catch(() => null);
     if (saved) setSettings(saved);
   }

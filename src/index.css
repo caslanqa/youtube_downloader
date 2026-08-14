@@ -1,12 +1,12 @@
 @import 'tailwindcss';
 
-/* Tema, `data-theme` özniteliğiyle sürülür; 'system' seçimi renderer'da çözülüp
-   'light' | 'dark' olarak yazılır (bkz. src/renderer/theme.ts). */
+/* The theme is driven by the `data-theme` attribute; the renderer resolves 'system' and
+   writes 'light' | 'dark' (see src/renderer/theme.ts). */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
-/* Anlamsal tokenlar: bileşenler ham renk değil bu adları kullanır, böylece tema
-   değişimi tek yerden olur ve hiçbir bileşende `dark:` varyantı gerekmez.
-   Kontrastlar WCAG 1.4.3 (metin 4.5:1) ve 1.4.11 (kenarlık/kontrol 3:1) hedefine göre seçildi. */
+/* Semantic tokens: components reference these names instead of raw colours, so a theme change
+   happens in one place and no component needs a `dark:` variant. Contrast ratios target
+   WCAG 1.4.3 (4.5:1 for text) and 1.4.11 (3:1 for borders and controls). */
 @theme {
   --color-surface: #f4f4f5;
   --color-panel: #ffffff;
@@ -41,7 +41,7 @@
   }
 
   [data-theme='dark'] {
-    color-scheme: dark; /* native kaydırma çubuğu ve form kontrolleri de koyu olsun */
+    color-scheme: dark; /* keep native scrollbars and form controls dark as well */
   }
 
   body {
@@ -49,15 +49,15 @@
     color: var(--color-ink);
   }
 
-  /* WCAG 2.4.7: her odaklanabilir öğede görünür odak halkası. */
+  /* WCAG 2.4.7: a visible focus ring on every focusable element. */
   :focus-visible {
     outline: 2px solid var(--color-brand);
     outline-offset: 2px;
   }
 
-  /* Ayarlar açılır kutusu dişli düğmesinin altına, sağa hizalı açılır.
-     CSS anchor positioning kullanılıyor; popover varsayılan `inset: 0; margin: auto`
-     kuralı ekranın ortasına yerleştirdiği için bunlar açıkça sıfırlanmalı. */
+/* The settings popover opens below the gear button, aligned to its right edge, using CSS
+     anchor positioning. A popover's default `inset: 0; margin: auto` would centre it on the
+     screen, so both are reset explicitly. */
   .settings-anchor {
     anchor-name: --settings-anchor;
   }
@@ -71,7 +71,7 @@
     right: anchor(right);
   }
 
-  /* WCAG 2.3.3 / V5: hareket azaltma tercihi olan kullanıcıda geçişler kapanır. */
+  /* WCAG 2.3.3: transitions are disabled for users who prefer reduced motion. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

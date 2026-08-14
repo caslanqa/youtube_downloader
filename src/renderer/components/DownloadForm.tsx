@@ -8,9 +8,9 @@ import { ProbePreview } from './ProbePreview';
 const ALBUM_NAME_MAX = 80;
 
 /**
- * Probe'dan gelen başlığı klasör adı olarak önerir: yol ayırıcıları ve dosya
- * sistemlerinde sorun çıkaran karakterler elenir, uzun başlıklar kısaltılır.
- * Main süreci ayrıca kendi doğrulamasını yapıyor (validate.ts) — bu yalnızca öneri.
+ * Suggests a folder name from the probed title: path separators and characters that upset
+ * filesystems are replaced, and long titles are truncated. The main process validates the
+ * value again (validate.ts); this is only a suggestion.
  */
 function suggestAlbumName(title: string): string {
   return title
@@ -33,7 +33,7 @@ export function DownloadForm({
   const t = useT();
   const [url, setUrl] = useState('');
   const [albumName, setAlbumName] = useState('');
-  // Kullanıcı alana bir kez dokunduysa otomatik doldurma onu ezmez.
+  // Once the user has touched the field, auto-fill must not overwrite their input.
   const [albumEdited, setAlbumEdited] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { info, probing, probeError } = useProbe(url);
@@ -55,7 +55,7 @@ export function DownloadForm({
     };
     try {
       await onEnqueue(request, info);
-      // Form temizlenir: kullanıcı beklemeden ikinci bağlantıyı girebilir (docs/PLAN.md §8).
+      // Clear the form so a second link can be entered right away (docs/PLAN.md §8).
       setUrl('');
       setAlbumName('');
       setAlbumEdited(false);

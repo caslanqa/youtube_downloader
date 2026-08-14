@@ -1,5 +1,5 @@
-// Uçtan uca duman testi (docs/PLAN.md §10). Kapsam bilinçli olarak dar: paketlenmiş
-// ana süreç + gerçek IPC + gerçek renderer, sahte yt-dlp/ffmpeg ile ağsız çalışır.
+// End-to-end smoke test (docs/PLAN.md §10). The scope is deliberately narrow: the built main
+// process, real IPC and the real renderer, driven by fake binaries so no network is needed.
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -18,9 +18,9 @@ let destination: string;
 
 test.beforeAll(async () => {
   userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-e2e-'));
-  destination = path.join(userDataDir, 'indirilenler');
-  // Ayarlar uygulamanın kendi deposundan okunur; hedef klasörü önceden yazarak
-  // testin kullanıcının gerçek İndirilenler klasörüne dokunmasını engelliyoruz.
+  destination = path.join(userDataDir, 'downloads');
+  // Settings are read from the app's own store, so writing the destination up front keeps the
+  // test away from the user's real Downloads folder.
   fs.writeFileSync(
     path.join(userDataDir, 'config.json'),
     JSON.stringify({
@@ -30,7 +30,7 @@ test.beforeAll(async () => {
       numberPlaylistItems: false,
       embedMetadata: true,
       theme: 'dark',
-      language: 'tr', // testteki metin beklentileri sistem dilinden etkilenmesin
+      language: 'en', // keep the expected strings independent of the system locale
       ytdlpAutoUpdate: false,
     }),
   );
@@ -43,7 +43,7 @@ test.beforeAll(async () => {
       ...process.env,
       YTDL_YTDLP_PATH: FAKE_YTDLP,
       YTDL_FFMPEG_PATH: FAKE_FFMPEG,
-      YTDL_DENO_PATH: FAKE_DENO, // gerçek deno indirmesi testte tetiklenmesin
+      YTDL_DENO_PATH: FAKE_DENO, // never trigger a real deno download from a test
     },
   });
   page = await app.firstWindow();
@@ -54,40 +54,40 @@ test.afterAll(async () => {
   fs.rmSync(userDataDir, { recursive: true, force: true });
 });
 
-test('hazırlık tamamlanınca ana arayüz yüklenir', async () => {
-  // Arayüzün görünmesi aynı zamanda üretim CSP başlığının renderer'ı bozmadığını kanıtlar.
+test('loads the main UI once preparation finishes', async () => {
+  // A rendered UI also proves the production CSP header did not break the renderer.
   await expect(page.getByRole('heading', { name: 'YouTube Downloader', level: 1 })).toBeVisible();
   await expect(page.getByText('yt-dlp 2026.07.04')).toBeVisible();
-  await expect(page.getByLabel('YouTube bağlantısı')).toBeVisible();
+  await expect(page.getByLabel('YouTube link')).toBeVisible();
 });
 
-test('bağlantı incelenir, iş kuyruğa alınır ve tamamlanır', async () => {
-  await page.getByLabel('YouTube bağlantısı').fill('https://www.youtube.com/watch?v=abc123');
-  await expect(page.getByText('Sahte Test Videosu')).toBeVisible();
+test('probes a link, queues the job and completes it', async () => {
+  await page.getByLabel('YouTube link').fill('https://www.youtube.com/watch?v=abc123');
+  await expect(page.getByText('Fake Test Video')).toBeVisible();
 
-  // Albüm adı probe başlığından otomatik dolar; kullanıcı yazınca üzerine yazılmaz.
-  await expect(page.getByLabel('Albüm adı')).toHaveValue('Sahte Test Videosu');
-  await page.getByLabel('Albüm adı').fill('E2E Albüm');
-  await page.getByRole('button', { name: 'Kuyruğa ekle' }).click();
+  // The album name is auto-filled from the probed title and is not overwritten once typed.
+  await expect(page.getByLabel('Album name')).toHaveValue('Fake Test Video');
+  await page.getByLabel('Album name').fill('E2E Album');
+  await page.getByRole('button', { name: 'Add to queue' }).click();
 
-  await expect(page.getByText(/Tamamlandı/)).toBeVisible({ timeout: 15_000 });
-  expect(fs.existsSync(path.join(destination, 'E2E Albüm', 'Sahte Test Videosu.mp3'))).toBe(true);
+  await expect(page.getByText(/Completed/)).toBeVisible({ timeout: 15_000 });
+  expect(fs.existsSync(path.join(destination, 'E2E Album', 'Fake Test Video.mp3'))).toBe(true);
 });
 
-test('ayarlar dişli düğmesinin altında açılır ve dil değişimi arayüze yansır', async () => {
-  const gear = page.getByRole('button', { name: 'Ayarları aç' });
+test('opens settings under the gear button and applies a language change', async () => {
+  const gear = page.getByRole('button', { name: 'Open settings' });
   await gear.click();
-  await expect(page.getByRole('heading', { name: 'Ayarlar' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
-  // Açılır kutu düğmenin ALTINDA ve sağa hizalı olmalı (ekranın ortasında değil).
+  // The popover must sit BELOW the button and align to its right edge, not centred on screen.
   const gearBox = (await gear.boundingBox())!;
   const popoverBox = (await page.locator('#settings-popover').boundingBox())!;
   expect(popoverBox.y).toBeGreaterThanOrEqual(gearBox.y + gearBox.height);
   expect(Math.abs(popoverBox.x + popoverBox.width - (gearBox.x + gearBox.width))).toBeLessThan(2);
 
-  await page.getByLabel('Dil').selectOption('en');
-  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await page.getByLabel('Language').selectOption('tr');
+  await expect(page.getByRole('heading', { name: 'Ayarlar' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.getByLabel('YouTube link')).toBeVisible();
+  await page.getByRole('button', { name: 'Kapat' }).click();
+  await expect(page.getByLabel('YouTube bağlantısı')).toBeVisible();
 });

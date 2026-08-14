@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import type { Settings } from '../shared/types';
 
 /**
- * Seçilen temayı `<html data-theme>` üzerine yazar. 'system' seçimi burada
- * çözülür — CSS tarafında tek bir mekanizma (öznitelik) kalsın diye; ayrıca
- * kullanıcı sistem temasını uygulama açıkken değiştirirse anında uygulanır.
+ * Writes the selected theme onto `<html data-theme>`. The 'system' choice is resolved here so
+ * the CSS only has to deal with one mechanism (the attribute), and so a system theme change
+ * while the app is open takes effect immediately.
  */
 export function useAppliedTheme(theme: Settings['theme']): void {
   useEffect(() => {

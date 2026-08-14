@@ -1,10 +1,10 @@
-// deno, yt-dlp'nin varsayılan JavaScript runtime'ı. Onsuz YouTube çıkarımı
-// "deprecated" sayılıyor ve formatların bir kısmı listelenmiyor (ölçüm için
-// bkz. docs/PLAN.md §6). yt-dlp gibi runtime'da indirilip yönetilir.
+// deno is yt-dlp's default JavaScript runtime. Without it YouTube extraction is considered
+// deprecated and some formats are not listed at all (measurements in docs/PLAN.md §6).
+// It is downloaded and managed at runtime, exactly like yt-dlp.
 
 export const DENO_REPO = 'denoland/deno';
 
-// deno release'leri hedef üçlüsüyle adlandırılmış zip arşivleri yayınlar.
+// deno releases ship zip archives named after the target triple.
 const TARGETS: Record<string, string> = {
   'darwin-arm64': 'aarch64-apple-darwin',
   'darwin-x64': 'x86_64-apple-darwin',
@@ -14,20 +14,20 @@ const TARGETS: Record<string, string> = {
   'linux-arm64': 'aarch64-unknown-linux-gnu',
 };
 
-/** GitHub release asset adı (zip). Platform desteklenmiyorsa fırlatır. */
+/** GitHub release asset name (zip). Throws when the platform is not published. */
 export function getDenoAssetName(): string {
   const key = `${process.platform}-${process.arch}`;
   const target = TARGETS[key];
-  if (!target) throw new Error(`deno bu platform için yayınlanmıyor: ${key}`);
+  if (!target) throw new Error(`deno is not published for this platform: ${key}`);
   return `deno-${target}.zip`;
 }
 
-/** Her asset'in kendi checksum dosyası var (yt-dlp'deki tek SUMS dosyasından farklı). */
+/** Every asset has its own checksum file, unlike yt-dlp's single SUMS file. */
 export function getDenoSumsAssetName(): string {
   return `${getDenoAssetName()}.sha256sum`;
 }
 
-/** userData/bin/ altında arşivden çıkacak dosya adı. */
+/** File name extracted from the archive into userData/bin/. */
 export function getDenoLocalName(): string {
   return process.platform === 'win32' ? 'deno.exe' : 'deno';
 }

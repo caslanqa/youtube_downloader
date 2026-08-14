@@ -1,4 +1,4 @@
-// İş kuyruğu: eşzamanlılık limiti kadar iş aynı anda çalışır, kalanı sırada bekler. bkz. docs/PLAN.md §8, §13 (Faz 3).
+// Job queue: runs up to the concurrency limit at once, the rest wait. See docs/PLAN.md §8, §13.
 import type { Job, JobRequest, JobStatus } from '../../shared/types';
 import { cancelJob as cancelRunningJob, startJob } from './job';
 
@@ -14,7 +14,7 @@ let ytdlpPath = '';
 let ffmpegPath = '';
 let notify: (job: Job) => void = () => {};
 
-/** Binary yolları hazır olduğunda ve pencere kurulurken bir kez çağrılır. */
+/** Called once, when the binary paths are ready and the window has been created. */
 export function configureQueue(paths: { ytdlpPath: string; ffmpegPath: string }, onUpdate: (job: Job) => void): void {
   ytdlpPath = paths.ytdlpPath;
   ffmpegPath = paths.ffmpegPath;
@@ -34,7 +34,7 @@ export function enqueue(jobId: string, request: JobRequest): Job {
   return job;
 }
 
-/** Çalışıyorsa süreci durdurur; henüz başlamadıysa sıradan çıkarır. */
+/** Stops the process if it is running; removes the job from the queue if it has not started. */
 export function cancel(jobId: string): void {
   cancelRunningJob(jobId);
   const idx = pending.findIndex((entry) => entry.job.id === jobId);

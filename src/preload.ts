@@ -12,8 +12,8 @@ contextBridge.exposeInMainWorld('api', {
   setSettings: (partial: Partial<Settings>) => ipcRenderer.invoke('settings:set', partial) as Promise<Settings>,
   pickFolder: () => ipcRenderer.invoke('dialog:pickFolder') as Promise<string | null>,
   openFolder: (target: string) => ipcRenderer.invoke('shell:openFolder', target) as Promise<void>,
-  // (_e, value) => cb(value) sarmalaması bilinçli: callback'e IpcRendererEvent
-  // geçirmek event.sender üzerinden ipcRenderer'ı renderer'a sızdırır.
+  // The (_e, value) => cb(value) wrapper is deliberate: handing the callback an
+  // IpcRendererEvent would leak ipcRenderer to the renderer through event.sender.
   onBinaryState: (cb: (state: BinaryState) => void) =>
     ipcRenderer.on('binaries:state', (_e, state: BinaryState) => cb(state)),
   onJobUpdate: (cb: (job: Job) => void) => ipcRenderer.on('job:update', (_e, job: Job) => cb(job)),

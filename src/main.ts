@@ -8,11 +8,11 @@ if (started) {
   app.quit();
 }
 
-// Kapak görselleri YouTube CDN'inden gelir; onun dışında uzak kaynak yüklenmez (docs/PLAN.md §11).
+// Thumbnails come from YouTube's CDN; no other remote origin is allowed (docs/PLAN.md §11).
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  // React satır içi `style` özniteliği kullanıyor (ilerleme çubuğu genişliği).
+  // React sets inline `style` attributes (progress bar width).
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https://*.ytimg.com",
   "font-src 'self'",
@@ -23,7 +23,7 @@ const CSP = [
   "frame-src 'none'",
 ].join('; ');
 
-/** Geliştirme sunucusu HMR için websocket ve satır içi script kullanır; üretimde bunlar kapalı. */
+/** The dev server needs websockets and inline scripts for HMR; production allows neither. */
 function contentSecurityPolicy(): string {
   if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) return CSP;
   const dev = new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin;
@@ -43,10 +43,10 @@ function applySecurityPolicies(): void {
   });
 }
 
-/** Uygulama penceresi kendi arayüzünden başka bir yere gitmez; dış bağlantılar tarayıcıya. */
+/** The window never navigates away from its own UI; external links open in the browser. */
 function restrictNavigation(window: BrowserWindow): void {
   window.webContents.on('will-navigate', (event, url) => {
-    // Geliştirmede HMR tam sayfa yenilemesi aynı origin'e gider; üretimde hiçbir gezinme yok.
+    // In development a full HMR reload targets the same origin; production allows no navigation.
     const allowed = Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL && url.startsWith(MAIN_WINDOW_VITE_DEV_SERVER_URL));
     if (!allowed) event.preventDefault();
   });

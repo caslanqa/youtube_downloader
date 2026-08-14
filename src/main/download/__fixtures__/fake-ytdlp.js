@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Gerçek ağ erişimi olmadan job.ts akışını uçtan uca test etmek için sahte yt-dlp.
-// FAKE_YTDLP_MODE ortam değişkeniyle davranış seçilir: success | fail | hang (varsayılan: success).
+// Fake yt-dlp used to exercise the job.ts flow end to end without network access.
+// FAKE_YTDLP_MODE selects the behaviour: success | fail | hang (default: success).
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -12,8 +12,8 @@ fs.mkdirSync(outputDir, { recursive: true });
 
 const mode = process.env.FAKE_YTDLP_MODE || 'success';
 
-// Gerçek yt-dlp `--progress-template "download:%(progress)j"` ile çıplak JSON satırı yazar;
-// `download:` tip seçicidir ve çıktıya girmez. Sahte ikili de aynısını yapmalı.
+// With `--progress-template "download:%(progress)j"` real yt-dlp writes bare JSON lines: the
+// `download:` part is a type selector and never reaches the output. The fake must match that.
 function emit(downloadedBytes, totalBytes) {
   process.stdout.write(
     `${JSON.stringify({
@@ -38,5 +38,5 @@ if (mode === 'success') {
 } else if (mode === 'hang') {
   emit(100000, 1000000);
   fs.writeFileSync(path.join(outputDir, 'Test Video.part'), 'partial content');
-  setInterval(() => {}, 1000); // SIGTERM ile öldürülene kadar bekler
+  setInterval(() => {}, 1000); // wait until SIGTERM arrives
 }

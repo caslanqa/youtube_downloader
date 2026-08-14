@@ -5,9 +5,9 @@ import { BUTTON_QUIET, FIELD, LABEL } from '../ui';
 export const SETTINGS_POPOVER_ID = 'settings-popover';
 
 /**
- * Native Popover API: açma/kapama, dışarı tıklayınca kapanma, Escape ve odağın
- * tetikleyen düğmeye dönmesi tarayıcıdan gelir — React state'i tutulmaz.
- * Konumlandırma CSS anchor positioning ile dişli düğmesine bağlanır (src/index.css).
+ * Native Popover API: opening, light dismiss, Escape and returning focus to the trigger are
+ * all handled by the browser, so no React state is needed. Positioning is anchored to the
+ * gear button through CSS anchor positioning (src/index.css).
  */
 export function SettingsPopover({
   settings,

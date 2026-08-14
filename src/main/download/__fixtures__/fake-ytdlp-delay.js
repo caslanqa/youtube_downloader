@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Kuyruk eşzamanlılık testleri için gecikmeli sahte yt-dlp: FAKE_DELAY_MS kadar bekleyip biter,
-// FAKE_LOG_FILE varsa başlangıç/bitiş zaman damgalarını oraya yazar (örtüşme analizi için).
+// Delayed fake yt-dlp for the queue concurrency tests: it waits FAKE_DELAY_MS and exits,
+// writing start/end timestamps to FAKE_LOG_FILE when set so overlap can be measured.
 const fs = require('node:fs');
 const path = require('node:path');
 

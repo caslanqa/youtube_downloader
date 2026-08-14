@@ -15,33 +15,33 @@ function withPlatform<T>(platform: NodeJS.Platform, arch: NodeJS.Architecture, f
 }
 
 describe('getYtDlpAssetName', () => {
-  it('darwin için yt-dlp_macos döner', () => {
+  it('returns yt-dlp_macos on darwin', () => {
     expect(withPlatform('darwin', 'arm64', getYtDlpAssetName)).toBe('yt-dlp_macos');
   });
 
-  it('win32 için yt-dlp.exe döner', () => {
+  it('returns yt-dlp.exe on win32', () => {
     expect(withPlatform('win32', 'x64', getYtDlpAssetName)).toBe('yt-dlp.exe');
   });
 
-  it('linux x64 için yt-dlp_linux döner', () => {
+  it('returns yt-dlp_linux on linux x64', () => {
     expect(withPlatform('linux', 'x64', getYtDlpAssetName)).toBe('yt-dlp_linux');
   });
 
-  it('linux arm64 için yt-dlp_linux_aarch64 döner', () => {
+  it('returns yt-dlp_linux_aarch64 on linux arm64', () => {
     expect(withPlatform('linux', 'arm64', getYtDlpAssetName)).toBe('yt-dlp_linux_aarch64');
   });
 
-  it('desteklenmeyen platformda hata fırlatır', () => {
-    expect(() => withPlatform('aix', 'x64', getYtDlpAssetName)).toThrow(/Desteklenmeyen platform/);
+  it('throws on an unsupported platform', () => {
+    expect(() => withPlatform('aix', 'x64', getYtDlpAssetName)).toThrow(/Unsupported platform/);
   });
 });
 
 describe('getYtDlpLocalName', () => {
-  it('win32 dışında "yt-dlp" döner', () => {
+  it('returns "yt-dlp" everywhere but win32', () => {
     expect(withPlatform('darwin', 'arm64', getYtDlpLocalName)).toBe('yt-dlp');
   });
 
-  it('win32 için "yt-dlp.exe" döner', () => {
+  it('returns "yt-dlp.exe" on win32', () => {
     expect(withPlatform('win32', 'x64', getYtDlpLocalName)).toBe('yt-dlp.exe');
   });
 });

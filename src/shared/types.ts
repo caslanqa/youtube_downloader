@@ -1,5 +1,5 @@
-// Main ve renderer sürecinin paylaştığı tipler — IPC sözleşmesinin tek doğruluk kaynağı.
-// bkz. docs/PLAN.md §5
+// Types shared by the main and renderer processes: the single source of truth for the
+// IPC contract. See docs/PLAN.md §5.
 
 export type BinaryState =
   | { kind: 'checking' }
@@ -15,14 +15,14 @@ export interface MediaInfo {
   thumbnail?: string;
   duration?: number;
   isPlaylist: boolean;
-  entryCount: number; // tekil video için 1
+  entryCount: number; // 1 for a single video
 }
 
 export interface JobRequest {
   url: string;
   format: Format;
   albumName: string;
-  /** Kullanıcının seçtiği taban klasör — nihai yol `destination/albumName`'dir. */
+  /** Base folder chosen by the user; the final path is `destination/albumName`. */
   destination: string;
   numberPlaylistItems: boolean;
 }

@@ -1,4 +1,4 @@
-// Format profilleri — bkz. docs/PLAN.md §7. Tek yerde tanımlanır, job.ts burada okur.
+// Format profiles; see docs/PLAN.md §7. Defined once here and read by job.ts.
 
 import type { Format } from '../../shared/types';
 

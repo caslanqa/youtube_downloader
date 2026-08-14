@@ -23,9 +23,9 @@ function jobTitle(job: Job): string {
 }
 
 /**
- * Tek bir canlı bölge, yalnızca durum *geçişlerini* duyurur. Her kartı ayrı ayrı
- * `role="status"` yapmak veya yüzde değişimlerini duyurmak ekran okuyucuyu
- * saniyede birkaç kez konuşturur (WCAG 4.1.3'ün amacı bu değil).
+ * A single live region announces status *transitions* only. Marking every card as
+ * `role="status"`, or announcing percentage updates, would make a screen reader talk several
+ * times per second, which is not what WCAG 4.1.3 asks for.
  */
 function useStatusAnnouncement(jobs: Job[], t: Translate): string {
   const seen = useRef(new Map<string, JobStatus['kind']>());
@@ -37,8 +37,8 @@ function useStatusAnnouncement(jobs: Job[], t: Translate): string {
       seen.current.set(job.id, job.status.kind);
       setMessage(`${jobTitle(job)}: ${statusLabel(job.status, t)}`);
     }
-    // Bağımlılık yalnızca `jobs`: `t` her render'da yeni bir fonksiyon, listeye
-    // eklenirse dil değişmeden de duyuru tekrarlanır.
+    // `jobs` is the only dependency: `t` is a new function on every render, so including it
+    // would repeat announcements even when the language has not changed.
   }, [jobs]);
 
   return message;

@@ -1,5 +1,5 @@
-// Binary hazırlığı: yt-dlp, ffmpeg ve deno'yu indirir + SHA-256 doğrular,
-// sürümlerini okur. Üçü de uygulamayla paketlenmez. bkz. docs/PLAN.md §6.
+// Binary preparation: downloads yt-dlp, ffmpeg and deno, verifies their SHA-256 and reads
+// their versions. None of them ship inside the installer. See docs/PLAN.md §6.
 import { app } from 'electron';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -19,7 +19,7 @@ const USER_AGENT = 'youtube-downloader-app';
 interface ReleaseAsset {
   name: string;
   browser_download_url: string;
-  /** GitHub'ın varlık başına verdiği özet, "sha256:<hex>" biçiminde (her repoda bulunmayabilir). */
+  /** Per-asset digest reported by GitHub as "sha256:<hex>" (not present in every repository). */
   digest?: string | null;
 }
 
@@ -33,14 +33,14 @@ async function fetchLatestRelease(repo: string): Promise<ReleaseInfo> {
     headers: { 'User-Agent': USER_AGENT },
   });
   if (!res.ok) {
-    throw new Error(`${repo} sürüm bilgisi alınamadı (HTTP ${res.status})`);
+    throw new Error(`Could not read ${repo} release info (HTTP ${res.status})`);
   }
   return (await res.json()) as ReleaseInfo;
 }
 
 async function fetchText(url: string): Promise<string> {
   const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
-  if (!res.ok) throw new Error(`İndirme başarısız: ${url} (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(`Download failed: ${url} (HTTP ${res.status})`);
   return res.text();
 }
 
@@ -51,11 +51,11 @@ async function downloadWithProgress(
 ): Promise<void> {
   const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
   if (!res.ok || !res.body) {
-    throw new Error(`İndirme başarısız: ${url} (HTTP ${res.status})`);
+    throw new Error(`Download failed: ${url} (HTTP ${res.status})`);
   }
   const total = Number(res.headers.get('content-length')) || 0;
   let downloaded = 0;
-  // Süreç kimliği eklenir: iki uygulama örneği aynı anda indirse bile aynı .part dosyasına yazmazlar.
+  // The pid suffix keeps two app instances from writing the same .part file concurrently.
   const partPath = `${destPath}.${process.pid}.part`;
 
   try {
@@ -70,15 +70,15 @@ async function downloadWithProgress(
       },
       fs.createWriteStream(partPath),
     );
-    // Yarım dosya asla çalıştırılmaz: doğrulamadan önce .part olarak kalır.
+    // A half-written file is never executed: it stays as .part until the download completes.
     await fsp.rename(partPath, destPath);
   } catch (err) {
-    await fsp.rm(partPath, { force: true }); // yarım kalan dosya bir sonraki denemeyi kirletmesin
+    await fsp.rm(partPath, { force: true }); // leftovers must not poison the next attempt
     throw err;
   }
 }
 
-/** Verilen dosyanın SHA-256 özeti. Test edilebilir olması için export edildi. */
+/** SHA-256 digest of a file. Exported so it can be tested directly. */
 export async function sha256File(filePath: string): Promise<string> {
   const hash = crypto.createHash('sha256');
   for await (const chunk of fs.createReadStream(filePath)) {
@@ -87,18 +87,18 @@ export async function sha256File(filePath: string): Promise<string> {
   return hash.digest('hex');
 }
 
-/** GitHub varlık digest'ine ("sha256:<hex>") karşı doğrulama. */
+/** Verifies a file against a GitHub asset digest ("sha256:<hex>"). */
 export async function verifyDigest(filePath: string, digest: string | null | undefined): Promise<boolean> {
   const expected = digest?.replace(/^sha256:/, '').toLowerCase();
-  if (!expected) throw new Error('Varlık için sha256 digest bulunamadı');
+  if (!expected) throw new Error('No sha256 digest published for this asset');
   return expected === (await sha256File(filePath)).toLowerCase();
 }
 
-/** `sha256sum` formatlı bir SUMS dosyası içinden `fileName` doğrulamasını yapar. */
+/** Verifies `fileName` against a `sha256sum`-formatted SUMS file. */
 export async function verifyChecksum(filePath: string, fileName: string, sumsContent: string): Promise<boolean> {
   const line = sumsContent.split('\n').find((entry) => entry.trim().endsWith(fileName));
   if (!line) {
-    throw new Error(`${fileName} için checksum bulunamadı`);
+    throw new Error(`No checksum entry found for ${fileName}`);
   }
   const expected = line.trim().split(/\s+/)[0]?.toLowerCase();
   const actual = (await sha256File(filePath)).toLowerCase();
@@ -106,9 +106,9 @@ export async function verifyChecksum(filePath: string, fileName: string, sumsCon
 }
 
 /**
- * Diskteki ikilinin gerçekten kullanılabilir olduğunu doğrular: yalnızca "dosya var mı"
- * bakmak yetmez — yarım inmiş veya chmod'u yapılamamış bir dosya EACCES ile patlar ve
- * varlık kontrolü onu sonsuza dek onarılmaz bırakır.
+ * Checks that a binary on disk is actually usable. An existence check is not enough: a
+ * half-downloaded or non-executable file fails with EACCES, and an existence check alone
+ * would keep returning that broken copy forever.
  */
 async function isUsableBinary(binPath: string, versionArgs: string[] = ['--version']): Promise<boolean> {
   try {
@@ -126,7 +126,7 @@ async function ensureYtDlp(binDir: string, onState: (state: BinaryState) => void
     if (await isUsableBinary(localPath)) {
       return localPath;
     }
-    await fsp.rm(localPath, { force: true }); // bozuk kopya: yeniden indirilecek
+    await fsp.rm(localPath, { force: true }); // broken copy: download it again
   }
 
   onState({ kind: 'downloading', name: 'yt-dlp', percent: 0 });
@@ -134,8 +134,8 @@ async function ensureYtDlp(binDir: string, onState: (state: BinaryState) => void
   const assetName = getYtDlpAssetName();
   const asset = release.assets.find((a) => a.name === assetName);
   const sumsAsset = release.assets.find((a) => a.name === YTDLP_SUMS_ASSET);
-  if (!asset) throw new Error(`yt-dlp release varlığı bulunamadı: ${assetName}`);
-  if (!sumsAsset) throw new Error(`yt-dlp ${YTDLP_SUMS_ASSET} bulunamadı`);
+  if (!asset) throw new Error(`yt-dlp release asset not found: ${assetName}`);
+  if (!sumsAsset) throw new Error(`yt-dlp ${YTDLP_SUMS_ASSET} not found`);
 
   await fsp.mkdir(binDir, { recursive: true });
   await downloadWithProgress(asset.browser_download_url, localPath, (percent) =>
@@ -146,7 +146,7 @@ async function ensureYtDlp(binDir: string, onState: (state: BinaryState) => void
   const isValid = await verifyChecksum(localPath, assetName, sumsContent);
   if (!isValid) {
     await fsp.rm(localPath, { force: true });
-    throw new Error('yt-dlp checksum doğrulaması başarısız — dosya silindi');
+    throw new Error('yt-dlp checksum verification failed; the file was deleted');
   }
 
   await makeExecutable(localPath);
@@ -157,7 +157,7 @@ async function makeExecutable(binPath: string): Promise<void> {
   if (process.platform === 'win32') return;
   await fsp.chmod(binPath, 0o755);
   if (process.platform === 'darwin') {
-    // Karantina niteliği temizlenmezse Gatekeeper indirilen ikiliyi çalıştırmaz.
+    // Without clearing the quarantine attribute, Gatekeeper refuses to run the download.
     await new Promise<void>((resolve) => {
       const proc = spawn('xattr', ['-d', 'com.apple.quarantine', binPath]);
       proc.on('close', () => resolve());
@@ -167,8 +167,8 @@ async function makeExecutable(binPath: string): Promise<void> {
 }
 
 /**
- * ffmpeg zorunlu: MP3'e dönüştürme ve video+ses birleştirme onsuz çalışmaz,
- * bu yüzden deno'nun aksine "en iyi çaba" değil — indirilemezse hazırlık düşer.
+ * ffmpeg is mandatory: MP3 extraction and video+audio merging do not work without it.
+ * Unlike deno this is not best-effort; if it cannot be fetched, preparation fails.
  */
 async function ensureFfmpeg(binDir: string, onState: (state: BinaryState) => void): Promise<string> {
   const localPath = path.join(binDir, getFfmpegLocalName());
@@ -181,7 +181,7 @@ async function ensureFfmpeg(binDir: string, onState: (state: BinaryState) => voi
   const release = await fetchLatestRelease(FFMPEG_REPO);
   const assetName = getFfmpegAssetName();
   const asset = release.assets.find((a) => a.name === assetName);
-  if (!asset) throw new Error(`ffmpeg release varlığı bulunamadı: ${assetName}`);
+  if (!asset) throw new Error(`ffmpeg release asset not found: ${assetName}`);
 
   await fsp.mkdir(binDir, { recursive: true });
   await downloadWithProgress(asset.browser_download_url, localPath, (percent) =>
@@ -190,14 +190,14 @@ async function ensureFfmpeg(binDir: string, onState: (state: BinaryState) => voi
 
   if (!(await verifyDigest(localPath, asset.digest))) {
     await fsp.rm(localPath, { force: true });
-    throw new Error('ffmpeg checksum doğrulaması başarısız — dosya silindi');
+    throw new Error('ffmpeg checksum verification failed; the file was deleted');
   }
 
   await makeExecutable(localPath);
   return localPath;
 }
 
-/** Arşiv açma: işletim sisteminin kendi aracı kullanılır, ek bağımlılık yok. */
+/** Archive extraction through the operating system's own tool, so no extra dependency. */
 async function extractZip(zipPath: string, destDir: string): Promise<void> {
   const [command, args] =
     process.platform === 'win32'
@@ -211,14 +211,14 @@ async function extractZip(zipPath: string, destDir: string): Promise<void> {
     const proc = spawn(command, [...args]);
     proc.on('error', reject);
     proc.on('close', (code) =>
-      code === 0 ? resolve() : reject(new Error(`Arşiv açılamadı: ${command} kod ${code} ile bitti`)),
+      code === 0 ? resolve() : reject(new Error(`Could not extract archive: ${command} exited with code ${code}`)),
     );
   });
 }
 
 /**
- * deno, yt-dlp'nin JS runtime'ı. yt-dlp'den farkı: tek dosya değil zip yayınlanıyor
- * ve her asset'in kendi .sha256sum dosyası var.
+ * deno is yt-dlp's JavaScript runtime. It differs from yt-dlp in two ways: releases ship as
+ * zip archives rather than single files, and every asset has its own .sha256sum file.
  */
 async function ensureDeno(binDir: string, onState: (state: BinaryState) => void): Promise<string> {
   const localPath = path.join(binDir, getDenoLocalName());
@@ -232,8 +232,8 @@ async function ensureDeno(binDir: string, onState: (state: BinaryState) => void)
   const assetName = getDenoAssetName();
   const asset = release.assets.find((a) => a.name === assetName);
   const sumsAsset = release.assets.find((a) => a.name === getDenoSumsAssetName());
-  if (!asset) throw new Error(`deno release varlığı bulunamadı: ${assetName}`);
-  if (!sumsAsset) throw new Error(`deno checksum dosyası bulunamadı: ${getDenoSumsAssetName()}`);
+  if (!asset) throw new Error(`deno release asset not found: ${assetName}`);
+  if (!sumsAsset) throw new Error(`deno checksum file not found: ${getDenoSumsAssetName()}`);
 
   await fsp.mkdir(binDir, { recursive: true });
   const zipPath = path.join(binDir, assetName);
@@ -245,7 +245,7 @@ async function ensureDeno(binDir: string, onState: (state: BinaryState) => void)
   const isValid = await verifyChecksum(zipPath, assetName, sumsContent);
   if (!isValid) {
     await fsp.rm(zipPath, { force: true });
-    throw new Error('deno checksum doğrulaması başarısız — dosya silindi');
+    throw new Error('deno checksum verification failed; the file was deleted');
   }
 
   await extractZip(zipPath, binDir);
@@ -262,7 +262,7 @@ function readVersion(binPath: string, args: string[]): Promise<string> {
     proc.on('error', reject);
     proc.on('close', (code) => {
       if (code === 0) resolve(output.trim().split('\n')[0] ?? '');
-      else reject(new Error(`${binPath} ${args.join(' ')} kod ${code} ile bitti`));
+      else reject(new Error(`${binPath} ${args.join(' ')} exited with code ${code}`));
     });
   });
 }
@@ -270,13 +270,13 @@ function readVersion(binPath: string, args: string[]): Promise<string> {
 interface BinaryPaths {
   ytdlpPath: string;
   ffmpegPath: string;
-  /** JS runtime bulunamazsa uygulama çalışmaya devam eder; yalnızca bazı formatlar eksilir. */
+  /** Without the JS runtime the app still works; only some formats stop being listed. */
   denoPath?: string;
 }
 
-// Tek uçuş (single-flight): pencere yeniden yüklendiğinde renderer ensureBinaries'i tekrar
-// çağırır. Koruma olmadan iki indirme aynı dosyalar üzerinde yarışır (checksum hatası,
-// rename ENOENT). Sonuç ayrıca önbelleğe alınır; geç gelen çağrı 'ready' durumunu tekrar alır.
+// Single-flight guard: the renderer calls ensureBinaries again whenever the window reloads.
+// Without it two downloads race over the same files (checksum failures, rename ENOENT). The
+// result is cached as well, so a late caller still receives the 'ready' state.
 let inFlight: Promise<BinaryPaths> | null = null;
 let ready: { paths: BinaryPaths; state: BinaryState } | null = null;
 
@@ -287,7 +287,7 @@ export function ensureBinaries(onState: (state: BinaryState) => void): Promise<B
   }
   if (!inFlight) {
     inFlight = doEnsureBinaries(onState).catch((err) => {
-      inFlight = null; // başarısızlık kalıcı değil: kullanıcı yeniden deneyebilir
+      inFlight = null; // failure is not permanent: the user can retry
       throw err;
     });
   }
@@ -299,8 +299,8 @@ async function doEnsureBinaries(onState: (state: BinaryState) => void): Promise<
   const binDir = path.join(app.getPath('userData'), 'bin');
 
   try {
-    // Dışarıdan verilen yollar indirmenin yerine geçer: indirme kaynağı bozulduğunda
-    // kullanıcıya kaçış yolu (bkz. docs/PLAN.md §14) ve uçtan uca testler için giriş noktası.
+    // Externally provided paths replace the download: an escape hatch when a download source
+    // breaks (docs/PLAN.md §14) and the injection point for end-to-end tests.
     const ytdlpPath = process.env.YTDL_YTDLP_PATH || (await ensureYtDlp(binDir, onState));
     const ffmpegPath = process.env.YTDL_FFMPEG_PATH || (await ensureFfmpeg(binDir, onState));
     const [ytdlpVersion, ffmpegVersionLine] = await Promise.all([
@@ -309,13 +309,13 @@ async function doEnsureBinaries(onState: (state: BinaryState) => void): Promise<
     ]);
     const ffmpegVersion = ffmpegVersionLine.split(' ')[2] ?? ffmpegVersionLine;
 
-    // deno en iyi çaba: indirilemezse indirme yine çalışır (bazı formatlar listelenmez),
-    // bu yüzden hata tüm hazırlığı düşürmez — yalnızca loglanır.
+    // deno is best-effort: downloads still work without it (some formats are missing), so a
+    // failure must not bring the whole preparation down; it is only logged.
     let denoPath: string | undefined;
     try {
       denoPath = process.env.YTDL_DENO_PATH || (await ensureDeno(binDir, onState));
     } catch (err) {
-      console.warn('deno hazırlanamadı, JS runtime olmadan devam ediliyor:', err);
+      console.warn('Could not prepare deno, continuing without a JS runtime:', err);
     }
     setDenoDirectory(denoPath ?? null);
 

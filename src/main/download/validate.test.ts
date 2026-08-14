@@ -2,38 +2,38 @@ import { describe, expect, it } from 'vitest';
 import { resolveDestination, sanitizeAlbumName, validateUrl } from './validate';
 
 describe('validateUrl', () => {
-  it('kabul eder: https + izinli host', () => {
+  it('accepts https URLs on allowlisted hosts', () => {
     expect(() => validateUrl('https://www.youtube.com/watch?v=abc')).not.toThrow();
     expect(() => validateUrl('https://youtu.be/abc')).not.toThrow();
     expect(() => validateUrl('https://music.youtube.com/watch?v=abc')).not.toThrow();
   });
 
-  it('reddeder: http (https değil)', () => {
+  it('rejects plain http', () => {
     expect(() => validateUrl('http://www.youtube.com/watch?v=abc')).toThrow(/https/i);
   });
 
-  it('reddeder: izinsiz host', () => {
+  it('rejects hosts outside the allowlist', () => {
     expect(() => validateUrl('https://evil.example.com/watch?v=abc')).toThrow(/host/i);
   });
 
-  it('reddeder: geçersiz URL', () => {
-    expect(() => validateUrl('not a url')).toThrow(/geçersiz/i);
+  it('rejects malformed URLs', () => {
+    expect(() => validateUrl('not a url')).toThrow(/invalid/i);
   });
 });
 
 describe('sanitizeAlbumName', () => {
-  it('yol ayırıcıları temizler', () => {
+  it('replaces path separators', () => {
     expect(sanitizeAlbumName('a/b\\c')).toBe('a-b-c');
   });
 
-  it('boş, "." ve ".." için varsayılan ad döner', () => {
-    expect(sanitizeAlbumName('')).toBe('Indirilenler');
-    expect(sanitizeAlbumName('   ')).toBe('Indirilenler');
-    expect(sanitizeAlbumName('.')).toBe('Indirilenler');
-    expect(sanitizeAlbumName('..')).toBe('Indirilenler');
+  it('falls back to a default name for empty, "." and ".."', () => {
+    expect(sanitizeAlbumName('')).toBe('Downloads');
+    expect(sanitizeAlbumName('   ')).toBe('Downloads');
+    expect(sanitizeAlbumName('.')).toBe('Downloads');
+    expect(sanitizeAlbumName('..')).toBe('Downloads');
   });
 
-  it('zararsız noktalı adları korur', () => {
+  it('keeps harmless names that start with dots', () => {
     expect(sanitizeAlbumName('..hidden')).toBe('..hidden');
   });
 });
@@ -41,17 +41,17 @@ describe('sanitizeAlbumName', () => {
 describe('resolveDestination', () => {
   const base = '/tmp/ytdl-base';
 
-  it('normal albüm adıyla base altında bir yol üretir', () => {
+  it('resolves a normal album name under the base directory', () => {
     expect(resolveDestination(base, 'My Album')).toBe('/tmp/ytdl-base/My Album');
   });
 
-  it('path traversal denemesini engeller', () => {
+  it('blocks a path traversal attempt', () => {
     expect(() => resolveDestination(base, '..')).not.toThrow();
-    // ".." tek başına sanitize edilip "Indirilenler" olur, base dışına çıkmaz.
-    expect(resolveDestination(base, '..')).toBe('/tmp/ytdl-base/Indirilenler');
+    // A bare ".." is sanitised to "Downloads" and never escapes the base directory.
+    expect(resolveDestination(base, '..')).toBe('/tmp/ytdl-base/Downloads');
   });
 
-  it('slash içeren gizli traversal denemesini engeller', () => {
+  it('blocks traversal attempts hidden behind slashes', () => {
     expect(resolveDestination(base, '../../etc')).toBe('/tmp/ytdl-base/..-..-etc');
   });
 });
