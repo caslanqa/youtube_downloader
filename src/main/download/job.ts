@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawnEnv } from '../binaries/runtimeEnv';
 import type { JobRequest, JobStatus } from '../../shared/types';
+import { summarizeDownloadError } from './errors';
 import { OUTPUT_TEMPLATE, PROFILES } from './formats';
 import { resolveDestination, validateUrl } from './validate';
 
@@ -150,7 +151,11 @@ export function startJob(
           const files = await fs.readdir(outputDir).catch(() => [] as string[]);
           onUpdate({ kind: 'done', outputDir, fileCount: files.length });
         } else {
-          onUpdate({ kind: 'error', message: `yt-dlp exited with code ${code}`, logTail: stderrTail.join('\n') });
+          onUpdate({
+            kind: 'error',
+            message: summarizeDownloadError(stderrTail, code),
+            logTail: stderrTail.join('\n'),
+          });
         }
       })();
     });

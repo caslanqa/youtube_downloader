@@ -423,6 +423,14 @@ download the tools manually and point the app at them with `YTDL_YTDLP_PATH`,
 The video may be age- or region-restricted. *Details* on the failed job shows yt-dlp's own
 output, which usually names the reason.
 
+**A download fails with "403 Forbidden".**
+This comes from YouTube, not from the app: yt-dlp reached the video but was refused when it
+tried to fetch the actual audio/video data. It is usually one specific video, not every
+download — a heavily-viewed video, a TV/film upload from a publisher with extra bot
+protection, or a connection that has made a lot of requests recently. Wait a few minutes and
+try again, or test with a different video to tell a per-video block apart from a
+connection-wide one. If it never clears, make sure `yt-dlp` is up to date (see the next item).
+
 **Downloads suddenly stop working.**
 YouTube changes break yt-dlp regularly. Delete `yt-dlp` from the app's `bin/` directory and
 restart; the latest release is fetched again on the next launch.
