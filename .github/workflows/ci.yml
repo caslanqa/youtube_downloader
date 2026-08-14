@@ -64,6 +64,7 @@ jobs:
           # Üç runner aynı anda gelir; ilk gelen sürümü oluşturur, diğerlerinde komut
           # "zaten var" diye başarısız olur — bu beklenen durum, bu yüzden yutuluyor.
           gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes || true
-          gh release upload "${GITHUB_REF_NAME}" \
-            $(find out/make -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' \)) \
-            --clobber
+          # -print0/xargs -0: macOS ve Windows yükleyicilerinin adında boşluk var
+          # ("YouTube Downloader-2.0.0-arm64.dmg"); komut ikamesi bunları parçalıyordu.
+          find out/make -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' \) -print0 \
+            | xargs -0 gh release upload "${GITHUB_REF_NAME}" --clobber
