@@ -4,7 +4,6 @@ import com.caslanqa.Utils.Alerts;
 import com.caslanqa.Utils.DirectoryUtils;
 import com.caslanqa.Utils.Yt_DlpUtils;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -13,7 +12,6 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Background;
 import javafx.scene.paint.Paint;
-import javafx.scene.text.Font;
 
 public class YoutubeDownloaderController {
 

@@ -30,10 +30,7 @@ public class Yt_DlpUtils {
             return process.waitFor() == 0;
 
         } catch (Exception e) {
-            boolean flag = false;
-            installYtDlp(e);
-            flag = downloadAsMp3(playlistUrl, outputDir);
-            return flag;
+            return false;
         }
     }
 
@@ -62,11 +59,9 @@ public class Yt_DlpUtils {
             return process.waitFor() == 0;
 
         } catch (Exception e) {
-            boolean flag = false;
-            installYtDlp(e);
-            flag = downloadAsMp3(playlistUrl, outputDir);
-            return flag;
+            return false;
         }
+
     }
 
     public static boolean downloadAsVideoWebm(String playlistUrl, String outputDir) {
@@ -92,10 +87,7 @@ public class Yt_DlpUtils {
             return process.waitFor() == 0;
 
         } catch (Exception e) {
-            boolean flag = false;
-            installYtDlp(e);
-            flag = downloadAsMp3(playlistUrl, outputDir);
-            return flag;
+            return false;
         }
     }
 
