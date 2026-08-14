@@ -1,12 +1,17 @@
 name: Release
 
-# Manual trigger only: pick how the version should be bumped and the workflow tags the
-# repository, builds installers on all three platforms and publishes a GitHub release.
+# Manual trigger only. Pick which platforms to release and how to bump their version; the
+# workflow builds the installers and publishes one GitHub release per platform.
+#
+# Versions are tracked per platform, not globally: each platform's stream lives in its own tag
+# namespace (macos-vX.Y.Z, windows-vX.Y.Z, linux-vX.Y.Z) and is bumped from the newest tag in
+# that namespace. This is why the version in package.json is only a starting point: a single
+# field cannot represent three independent streams, so it is set per build and never committed.
 on:
   workflow_dispatch:
     inputs:
       bump:
-        description: 'Version bump'
+        description: 'Version bump applied to each selected platform'
         required: true
         default: patch
         type: choice
@@ -14,78 +19,131 @@ on:
           - patch
           - minor
           - major
+      macos:
+        description: 'Release macOS (.dmg, .zip)'
+        type: boolean
+        default: true
+      windows:
+        description: 'Release Windows (Setup.exe)'
+        type: boolean
+        default: true
+      linux:
+        description: 'Release Linux (.deb, .rpm)'
+        type: boolean
+        default: true
 
 jobs:
-  version:
+  plan:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
-      tag: ${{ steps.bump.outputs.tag }}
+      matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # existing tags are needed to work out each platform's current version
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
 
-      # The checks run before the tag exists, so a broken commit never gets a version.
+      # The checks run before anything is tagged, so a broken commit never gets released.
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
 
-      - name: Bump version and tag
-        id: bump
+      - name: Work out versions and build matrix
+        id: plan
+        env:
+          BUMP: ${{ inputs.bump }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # npm version writes package.json/package-lock.json, commits and creates the vX.Y.Z tag.
-          TAG="$(npm version "${{ inputs.bump }}" -m 'release: %s')"
-          git push origin HEAD:${{ github.ref_name }}
-          git push origin "$TAG"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+
+          next_version() {
+            local platform="$1" current
+            # Newest version in this platform's tag namespace; fall back to package.json for the
+            # very first release of a platform.
+            current="$(git tag --list "${platform}-v*" | sed "s/^${platform}-v//" | sort -V | tail -1)"
+            [ -n "$current" ] || current="$(node -p "require('./package.json').version")"
+            IFS=. read -r major minor patch <<< "$current"
+            case "$BUMP" in
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              patch) patch=$((patch + 1)) ;;
+            esac
+            echo "${major}.${minor}.${patch}"
+          }
+
+          entries=()
+          add() {
+            local version
+            version="$(next_version "$1")"
+            entries+=("$(jq -nc --arg platform "$1" --arg os "$2" --arg version "$version" \
+              '{platform: $platform, os: $os, version: $version, tag: ($platform + "-v" + $version)}')")
+            echo "$1 -> $version"
+          }
+
+          if [ "${{ inputs.macos }}" = "true" ]; then add macos macos-latest; fi
+          if [ "${{ inputs.windows }}" = "true" ]; then add windows windows-latest; fi
+          if [ "${{ inputs.linux }}" = "true" ]; then add linux ubuntu-latest; fi
+
+          if [ ${#entries[@]} -eq 0 ]; then
+            echo "::error::Select at least one platform to release."
+            exit 1
+          fi
+
+          printf '%s\n' "${entries[@]}" | jq -sc . | sed 's/^/matrix=/' >> "$GITHUB_OUTPUT"
 
   build:
-    needs: version
+    needs: plan
     strategy:
-      fail-fast: false
+      fail-fast: false # one platform failing must not cancel the others
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include: ${{ fromJson(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
-    # Needed to create the release and upload assets; the default token can only read.
+    # Needed to create the tag, the release and its assets; the default token can only read.
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.version.outputs.tag }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - name: Install rpm tooling (for MakerRpm)
-        if: runner.os == 'Linux'
+        if: matrix.platform == 'linux'
         run: sudo apt-get update && sudo apt-get install -y rpm
       - run: npm ci
+
+      # Stamps this platform's version into the build only; the change is never committed.
+      - name: Set build version
+        shell: bash
+        run: npm version "${{ matrix.version }}" --no-git-tag-version --allow-same-version
+
       - run: npm run make
+
       - uses: actions/upload-artifact@v4
         with:
-          name: installers-${{ matrix.os }}
+          name: installers-${{ matrix.platform }}-${{ matrix.version }}
           path: out/make/**/*
           if-no-files-found: error
 
       # Installers are unsigned: macOS shows a Gatekeeper prompt and Windows a SmartScreen
       # warning (docs/PLAN.md §12, §14).
-      - name: Publish installers
+      - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.version.outputs.tag }}
+          TAG: ${{ matrix.tag }}
+          PLATFORM: ${{ matrix.platform }}
+          VERSION: ${{ matrix.version }}
         shell: bash
         run: |
-          # All three runners arrive at once: the first creates the release and the others fail
-          # with "already exists", which is expected and therefore swallowed.
-          gh release create "$TAG" --title "$TAG" --generate-notes || true
+          set -euo pipefail
+          # --target creates the tag on this commit, so a failed build leaves no tag behind.
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$PLATFORM v$VERSION" \
+            --notes "Installers for $PLATFORM, built from ${GITHUB_SHA:0:7}."
           # -print0/xargs -0: the macOS and Windows installers have spaces in their file names
           # ("YouTube Downloader-2.0.0-arm64.dmg"), which command substitution would split.
           find out/make -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' \) -print0 \

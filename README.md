@@ -32,6 +32,7 @@ Runs on macOS, Windows and Linux. Built with Electron, React and TypeScript.
 - [Testing](#testing)
 - [Building installers](#building-installers)
 - [Releasing](#releasing)
+  - [Per-platform versioning](#per-platform-versioning)
 - [Security](#security)
 - [Troubleshooting](#troubleshooting)
 - [Licenses](#licenses)
@@ -51,8 +52,9 @@ Runs on macOS, Windows and Linux. Built with Electron, React and TypeScript.
 
 ## Installation
 
-Download the installer for your platform from the
-[latest release](https://github.com/caslanqa/youtube_downloader/releases/latest):
+Each platform is released separately, so pick the newest release whose title matches your
+platform on the [releases page](https://github.com/caslanqa/youtube_downloader/releases)
+(`macos vX.Y.Z`, `windows vX.Y.Z`, `linux vX.Y.Z`) and download its installer:
 
 | Platform | File |
 | --- | --- |
@@ -283,15 +285,30 @@ node scripts/make-icons.mjs [source.png]
 Releases are triggered manually from the Actions tab, never by pushing a tag.
 
 1. Open **Actions → Release → Run workflow**.
-2. Choose the version bump: `patch`, `minor` or `major`.
-3. Run it.
+2. Tick the platforms to release: macOS, Windows, Linux (any combination).
+3. Choose the version bump applied to each of them: `patch`, `minor` or `major`.
+4. Run it.
 
-The workflow then:
+The workflow then runs lint, typecheck and tests first, so a broken commit never gets released.
+For every selected platform it builds the installers on that platform's runner, creates the
+`<platform>-vX.Y.Z` tag on the current commit and publishes a GitHub release holding only that
+platform's files. A platform whose build fails leaves no tag and no release, and does not
+affect the others.
 
-1. runs lint, typecheck and tests, so a broken commit never gets a version;
-2. bumps the version with `npm version`, commits and pushes the `vX.Y.Z` tag;
-3. builds installers on macOS, Windows and Linux from that tag;
-4. creates the GitHub release and uploads every installer to it.
+### Per-platform versioning
+
+Each platform has its own version stream, so macOS can sit at 2.4.0 while Windows is still at
+2.1.3. The current version of a stream is the newest tag in its namespace:
+
+| Platform | Tag namespace | Release title |
+| --- | --- | --- |
+| macOS | `macos-vX.Y.Z` | `macos vX.Y.Z` |
+| Windows | `windows-vX.Y.Z` | `windows vX.Y.Z` |
+| Linux | `linux-vX.Y.Z` | `linux vX.Y.Z` |
+
+A platform without any tag yet starts from the version in `package.json`. That field is only
+the starting point: a single field cannot represent three independent streams, so the workflow
+stamps the computed version into the build and never commits the change.
 
 ## Security
 
