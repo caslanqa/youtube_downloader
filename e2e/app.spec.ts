@@ -30,6 +30,7 @@ test.beforeAll(async () => {
       numberPlaylistItems: false,
       embedMetadata: true,
       theme: 'dark',
+      language: 'tr', // testteki metin beklentileri sistem dilinden etkilenmesin
       ytdlpAutoUpdate: false,
     }),
   );
@@ -69,4 +70,15 @@ test('bağlantı incelenir, iş kuyruğa alınır ve tamamlanır', async () => {
 
   await expect(page.getByText(/Tamamlandı/)).toBeVisible({ timeout: 15_000 });
   expect(fs.existsSync(path.join(destination, 'E2E Albüm', 'Sahte Test Videosu.mp3'))).toBe(true);
+});
+
+test('ayarlar diyaloğu açılır ve dil değişimi arayüze yansır', async () => {
+  await page.getByRole('button', { name: 'Ayarları aç' }).click();
+  await expect(page.getByRole('heading', { name: 'Ayarlar' })).toBeVisible();
+
+  await page.getByLabel('Dil').selectOption('en');
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByLabel('YouTube link')).toBeVisible();
 });

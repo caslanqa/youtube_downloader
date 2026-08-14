@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Format, JobRequest, MediaInfo, Settings } from '../../shared/types';
+import { useT } from '../i18n';
 import { useProbe } from '../useProbe';
 import { BUTTON_PRIMARY, FIELD, LABEL, PANEL } from '../ui';
 import { ProbePreview } from './ProbePreview';
@@ -13,6 +14,7 @@ export function DownloadForm({
   onFormatChange: (format: Format) => void;
   onEnqueue: (request: JobRequest, info: MediaInfo | null) => Promise<void>;
 }) {
+  const t = useT();
   const [url, setUrl] = useState('');
   const [albumName, setAlbumName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export function DownloadForm({
     <form onSubmit={handleSubmit} className={PANEL}>
       <div>
         <label className={LABEL} htmlFor="url">
-          YouTube bağlantısı
+          {t('urlLabel')}
         </label>
         <input
           id="url"
@@ -50,7 +52,7 @@ export function DownloadForm({
           required
           value={url}
           onChange={(event) => setUrl(event.target.value)}
-          placeholder="https://www.youtube.com/watch?v=..."
+          placeholder={t('urlPlaceholder')}
           aria-invalid={probeError ? true : undefined}
           aria-describedby="url-status"
           className={FIELD}
@@ -61,7 +63,7 @@ export function DownloadForm({
       <div className="mt-4 flex gap-4">
         <div className="flex-1">
           <label className={LABEL} htmlFor="format">
-            Format
+            {t('formatLabel')}
           </label>
           <select
             id="format"
@@ -69,32 +71,32 @@ export function DownloadForm({
             onChange={(event) => onFormatChange(event.target.value as Format)}
             className={FIELD}
           >
-            <option value="mp3">MP3 (ses)</option>
-            <option value="mp4">MP4 (video)</option>
-            <option value="webm">WebM (video)</option>
+            <option value="mp3">{t('formatMp3')}</option>
+            <option value="mp4">{t('formatMp4')}</option>
+            <option value="webm">{t('formatWebm')}</option>
           </select>
         </div>
         <div className="flex-1">
           <label className={LABEL} htmlFor="album">
-            Albüm adı
+            {t('albumLabel')}
           </label>
           <input
             id="album"
             type="text"
             value={albumName}
             onChange={(event) => setAlbumName(event.target.value)}
-            placeholder="Indirilenler"
+            placeholder={t('albumPlaceholder')}
             aria-describedby="album-hint"
             className={FIELD}
           />
         </div>
       </div>
       <p id="album-hint" className="mt-1.5 text-xs text-muted">
-        Dosyalar hedef klasörün altında bu adla bir alt klasöre iner.
+        {t('albumHint')}
       </p>
 
       <button type="submit" className={`${BUTTON_PRIMARY} mt-5 w-full`}>
-        Kuyruğa ekle
+        {t('submit')}
       </button>
 
       {error && (

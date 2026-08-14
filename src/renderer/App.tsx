@@ -3,7 +3,8 @@ import type { BinaryState, Job, JobRequest, MediaInfo, Settings } from '../share
 import { DownloadForm } from './components/DownloadForm';
 import { PrepScreen } from './components/PrepScreen';
 import { QueueList } from './components/QueueList';
-import { SettingsPanel } from './components/SettingsPanel';
+import { SettingsDialog } from './components/SettingsDialog';
+import { LanguageProvider, useT } from './i18n';
 import { useAppliedTheme } from './theme';
 
 export function App() {
@@ -13,7 +14,13 @@ export function App() {
   // Kuyruk bilgisi main tarafında tutulmuyor; probe sonucunu iş kimliğiyle burada eşliyoruz.
   const infoById = useRef(new Map<string, MediaInfo>());
 
+  const language = settings?.language ?? 'tr';
   useAppliedTheme(settings?.theme ?? 'system');
+
+  useEffect(() => {
+    // Ekran okuyucunun doğru telaffuz etmesi için sayfa dili seçime uyar (WCAG 3.1.1).
+    document.documentElement.lang = language;
+  }, [language]);
 
   useEffect(() => {
     window.api.onBinaryState(setBinaries);
@@ -45,28 +52,80 @@ export function App() {
     if (info) infoById.current.set(jobId, info);
   }
 
-  if (binaries.kind !== 'ready' || !settings) {
-    return <PrepScreen state={binaries.kind === 'ready' ? { kind: 'checking' } : binaries} />;
-  }
+  return (
+    <LanguageProvider language={language}>
+      {binaries.kind !== 'ready' || !settings ? (
+        <PrepScreen state={binaries.kind === 'ready' ? { kind: 'checking' } : binaries} />
+      ) : (
+        <Workspace binaries={binaries} settings={settings} jobs={jobs} onPatch={patchSettings} onEnqueue={enqueue} />
+      )}
+    </LanguageProvider>
+  );
+}
+
+function Workspace({
+  binaries,
+  settings,
+  jobs,
+  onPatch,
+  onEnqueue,
+}: {
+  binaries: Extract<BinaryState, { kind: 'ready' }>;
+  settings: Settings;
+  jobs: Job[];
+  onPatch: (partial: Partial<Settings>) => void;
+  onEnqueue: (request: JobRequest, info: MediaInfo | null) => Promise<void>;
+}) {
+  const t = useT();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <main className="min-h-screen px-6 py-10">
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
-        <header>
-          <h1 className="text-2xl font-semibold tracking-tight">YouTube Downloader</h1>
-          <p className="mt-1 text-sm text-muted">
-            yt-dlp {binaries.ytdlpVersion} · ffmpeg {binaries.ffmpegVersion}
-          </p>
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">{t('appTitle')}</h1>
+            <p className="mt-1 text-sm text-muted">
+              {t('binariesVersions', { ytdlp: binaries.ytdlpVersion, ffmpeg: binaries.ffmpegVersion })}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            aria-label={t('settingsOpen')}
+            className="rounded-lg border border-line-soft p-2.5 text-muted transition-colors hover:bg-panel hover:text-ink"
+          >
+            <GearIcon />
+          </button>
         </header>
 
         <DownloadForm
           settings={settings}
-          onFormatChange={(format) => void patchSettings({ defaultFormat: format })}
-          onEnqueue={enqueue}
+          onFormatChange={(format) => onPatch({ defaultFormat: format })}
+          onEnqueue={onEnqueue}
         />
-        <SettingsPanel settings={settings} onChange={patchSettings} />
         <QueueList jobs={jobs} />
       </div>
+
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={settings}
+        onChange={onPatch}
+      />
     </main>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.2" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.4 13.5a7.7 7.7 0 0 0 0-3l1.7-1.3-1.9-3.3-2 .8a7.7 7.7 0 0 0-2.6-1.5L14.3 3H10l-.3 2.2a7.7 7.7 0 0 0-2.6 1.5l-2-.8-1.9 3.3 1.7 1.3a7.7 7.7 0 0 0 0 3l-1.7 1.3 1.9 3.3 2-.8a7.7 7.7 0 0 0 2.6 1.5L10 21h4.3l.3-2.2a7.7 7.7 0 0 0 2.6-1.5l2 .8 1.9-3.3-1.7-1.3Z"
+      />
+    </svg>
   );
 }

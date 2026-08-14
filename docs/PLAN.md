@@ -382,6 +382,8 @@ Davranış kuralları:
 - Hata kartında "Detay" son 50 satır yt-dlp çıktısını gösterir — sessiz hata yok.
 - İlk açılışta binary indirme durumu tam ekran bir hazırlık adımı olarak gösterilir; hazır olana kadar İndir devre dışı.
 - Açık/koyu tema, sistem tercihine uyar (`prefers-color-scheme`).
+- Ayarlar başlıktaki dişli düğmesinin altında, native `<dialog>` içinde: Escape ile kapanma, odak tuzağı ve kapanınca odağın düğmeye dönmesi tarayıcıdan gelir — elle odak yönetimi yazılmaz.
+- Arayüz dili Türkçe/İngilizce; seçim `<html lang>` özniteliğine de yansır.
 
 ### Erişilebilirlik (baştan, sonradan eklenmez)
 
@@ -497,7 +499,7 @@ Geliştirme sırasında netleştirilecek, planı bloklamayan konular:
 
 1. Uygulama adı ve bundle identifier (`com.caslanqa.ytdownloader` öneri).
 2. İkon: mevcut `ytdownload.png` yeniden mi kullanılacak, yeni tasarım mı?
-3. Arayüz dili: İngilizce mi Türkçe mi başlanacak (i18n yapısı her hâlükârda hazır bırakılır).
+3. ~~Arayüz dili~~ **Karara bağlandı:** Türkçe ve İngilizce birlikte. Sözlük tek dosyada (`src/renderer/i18n.tsx`), kütüphane yok; ilk açılışta sistem diline göre seçilir, ayarlardan değiştirilir. **Bilinen boşluk:** main sürecinden gelen hata mesajları (ör. "Desteklenmeyen host") henüz Türkçe sabit — çevrilmeleri için hata kodlarına dönüştürülmeleri gerekiyor.
 4. `legacy/` Faz 7'de gerçekten silinsin mi, yoksa arşiv olarak kalsın mı?
 5. Auto-update (electron-updater) ne zaman devreye girsin — imzalama olmadan macOS'ta çalışmıyor.
 6. ~~yt-dlp JS runtime'ı~~ **Karara bağlandı (Faz 5):** deno ikilisi yt-dlp gibi indirilip yönetiliyor; `RunAsNode` fuse'u kapalı kalıyor. Ayrıntı ve ölçüm için bkz. §6.

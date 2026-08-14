@@ -11,15 +11,21 @@ const DEFAULTS: Settings = {
   numberPlaylistItems: true,
   embedMetadata: true,
   theme: 'system',
+  language: 'tr', // ilk açılışta sistem diliyle değiştirilir (bkz. defaults())
   ytdlpAutoUpdate: true,
 };
+
+/** İlk açılışta arayüz dili sistem diline uyar; kullanıcı sonradan değiştirebilir. */
+function defaults(): Settings {
+  return { ...DEFAULTS, language: app.getLocale().toLowerCase().startsWith('tr') ? 'tr' : 'en' };
+}
 
 let store: Store<Settings> | null = null;
 
 function getStore(): Store<Settings> {
   if (!store) {
     store = new Store<Settings>({
-      defaults: DEFAULTS,
+      defaults: defaults(),
       cwd: path.join(app.getPath('userData')),
     });
   }
@@ -27,7 +33,7 @@ function getStore(): Store<Settings> {
 }
 
 export function getSettings(): Settings {
-  return { ...DEFAULTS, ...getStore().store };
+  return { ...defaults(), ...getStore().store };
 }
 
 export function setSettings(partial: Partial<Settings>): Settings {

@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Job, JobStatus } from '../../shared/types';
+import { useT, type Translate } from '../i18n';
 import { BUTTON_INLINE, PANEL } from '../ui';
 
-function statusLabel(status: JobStatus): string {
+function statusLabel(status: JobStatus, t: Translate): string {
   switch (status.kind) {
     case 'queued':
-      return 'sıraya alındı';
+      return t('statusQueuedShort');
     case 'running':
-      return 'indiriliyor';
+      return t('statusRunningShort');
     case 'done':
-      return `tamamlandı, ${status.fileCount} dosya`;
+      return t('statusDoneShort', { count: status.fileCount });
     case 'cancelled':
-      return 'iptal edildi';
+      return t('statusCancelledShort');
     case 'error':
-      return `hata: ${status.message}`;
+      return t('statusErrorShort', { message: status.message });
   }
 }
 
@@ -26,7 +27,7 @@ function jobTitle(job: Job): string {
  * `role="status"` yapmak veya yüzde değişimlerini duyurmak ekran okuyucuyu
  * saniyede birkaç kez konuşturur (WCAG 4.1.3'ün amacı bu değil).
  */
-function useStatusAnnouncement(jobs: Job[]): string {
+function useStatusAnnouncement(jobs: Job[], t: Translate): string {
   const seen = useRef(new Map<string, JobStatus['kind']>());
   const [message, setMessage] = useState('');
 
@@ -34,20 +35,23 @@ function useStatusAnnouncement(jobs: Job[]): string {
     for (const job of jobs) {
       if (seen.current.get(job.id) === job.status.kind) continue;
       seen.current.set(job.id, job.status.kind);
-      setMessage(`${jobTitle(job)}: ${statusLabel(job.status)}`);
+      setMessage(`${jobTitle(job)}: ${statusLabel(job.status, t)}`);
     }
+    // Bağımlılık yalnızca `jobs`: `t` her render'da yeni bir fonksiyon, listeye
+    // eklenirse dil değişmeden de duyuru tekrarlanır.
   }, [jobs]);
 
   return message;
 }
 
 export function QueueList({ jobs }: { jobs: Job[] }) {
-  const announcement = useStatusAnnouncement(jobs);
+  const t = useT();
+  const announcement = useStatusAnnouncement(jobs, t);
 
   return (
     <section aria-labelledby="queue-heading" className="space-y-3">
       <h2 id="queue-heading" className="text-sm font-medium text-muted">
-        İndirme kuyruğu
+        {t('queueHeading')}
       </h2>
 
       <p aria-live="polite" className="sr-only">
@@ -55,9 +59,7 @@ export function QueueList({ jobs }: { jobs: Job[] }) {
       </p>
 
       {jobs.length === 0 ? (
-        <p className={`${PANEL} text-sm text-muted`}>
-          Kuyruk boş. Yukarıya bir bağlantı ekleyerek başlayın.
-        </p>
+        <p className={`${PANEL} text-sm text-muted`}>{t('queueEmpty')}</p>
       ) : (
         <ul className="space-y-3">
           {jobs.map((job) => (
@@ -72,6 +74,7 @@ export function QueueList({ jobs }: { jobs: Job[] }) {
 }
 
 function JobCard({ job }: { job: Job }) {
+  const t = useT();
   const { status } = job;
 
   return (
@@ -81,7 +84,7 @@ function JobCard({ job }: { job: Job }) {
         <span className="shrink-0 text-xs font-medium uppercase text-muted">{job.request.format}</span>
       </div>
 
-      {status.kind === 'queued' && <p className="text-sm text-muted">Sırada bekliyor…</p>}
+      {status.kind === 'queued' && <p className="text-sm text-muted">{t('statusQueued')}</p>}
 
       {status.kind === 'running' && (
         <div className="space-y-2">
@@ -90,7 +93,7 @@ function JobCard({ job }: { job: Job }) {
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={status.percent}
-            aria-label={`${jobTitle(job)} indirme ilerlemesi`}
+            aria-label={t('progressLabel', { title: jobTitle(job) })}
             className="h-2 w-full overflow-hidden rounded-full bg-track"
           >
             <div className="h-full bg-brand transition-[width]" style={{ width: `${status.percent}%` }} />
@@ -99,14 +102,14 @@ function JobCard({ job }: { job: Job }) {
             <span>
               %{status.percent}
               {status.speed ? ` · ${status.speed}` : ''}
-              {status.eta ? ` · kalan ${status.eta}` : ''}
+              {status.eta ? ` · ${t('remaining', { eta: status.eta })}` : ''}
             </span>
             <button
               type="button"
               onClick={() => void window.api.cancel(job.id)}
               className={`${BUTTON_INLINE} text-danger`}
             >
-              İptal et
+              {t('cancel')}
             </button>
           </div>
         </div>
@@ -114,25 +117,25 @@ function JobCard({ job }: { job: Job }) {
 
       {status.kind === 'done' && (
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-ok">Tamamlandı — {status.fileCount} dosya</p>
+          <p className="text-sm text-ok">{t('statusDone', { count: status.fileCount })}</p>
           <button
             type="button"
             onClick={() => void window.api.openFolder(status.outputDir)}
             className={`${BUTTON_INLINE} text-ink`}
           >
-            Klasörü aç
+            {t('openFolder')}
           </button>
         </div>
       )}
 
-      {status.kind === 'cancelled' && <p className="text-sm text-muted">İptal edildi.</p>}
+      {status.kind === 'cancelled' && <p className="text-sm text-muted">{t('statusCancelled')}</p>}
 
       {status.kind === 'error' && (
         <div className="space-y-2">
           <p className="text-sm text-danger">{status.message}</p>
           {status.logTail && (
             <details>
-              <summary className="cursor-pointer rounded text-xs text-muted">Ayrıntı</summary>
+              <summary className="cursor-pointer rounded text-xs text-muted">{t('errorDetails')}</summary>
               <pre className="mt-1 max-h-32 overflow-auto rounded bg-surface p-2 text-xs text-muted">
                 {status.logTail}
               </pre>

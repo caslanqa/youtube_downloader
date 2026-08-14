@@ -41,6 +41,8 @@ export interface Job {
   status: JobStatus;
 }
 
+export type Language = 'tr' | 'en';
+
 export interface Settings {
   destination: string;
   defaultFormat: Format;
@@ -48,5 +50,6 @@ export interface Settings {
   numberPlaylistItems: boolean;
   embedMetadata: boolean;
   theme: 'system' | 'light' | 'dark';
+  language: Language;
   ytdlpAutoUpdate: boolean;
 }
