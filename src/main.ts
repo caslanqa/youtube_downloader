@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, session, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { registerIpc } from './main/ipc';
@@ -6,6 +6,54 @@ import { registerIpc } from './main/ipc';
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
+}
+
+// Kapak görselleri YouTube CDN'inden gelir; onun dışında uzak kaynak yüklenmez (docs/PLAN.md §11).
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  // React satır içi `style` özniteliği kullanıyor (ilerleme çubuğu genişliği).
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https://*.ytimg.com",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-src 'none'",
+].join('; ');
+
+/** Geliştirme sunucusu HMR için websocket ve satır içi script kullanır; üretimde bunlar kapalı. */
+function contentSecurityPolicy(): string {
+  if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) return CSP;
+  const dev = new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL).origin;
+  return CSP.replace("script-src 'self'", `script-src 'self' 'unsafe-inline' ${dev}`)
+    .replace("connect-src 'self'", `connect-src 'self' ${dev} ${dev.replace('http', 'ws')}`)
+    .replace("default-src 'self'", `default-src 'self' ${dev}`);
+}
+
+function applySecurityPolicies(): void {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [contentSecurityPolicy()],
+      },
+    });
+  });
+}
+
+/** Uygulama penceresi kendi arayüzünden başka bir yere gitmez; dış bağlantılar tarayıcıya. */
+function restrictNavigation(window: BrowserWindow): void {
+  window.webContents.on('will-navigate', (event, url) => {
+    // Geliştirmede HMR tam sayfa yenilemesi aynı origin'e gider; üretimde hiçbir gezinme yok.
+    const allowed = Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL && url.startsWith(MAIN_WINDOW_VITE_DEV_SERVER_URL));
+    if (!allowed) event.preventDefault();
+  });
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://')) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
 }
 
 const createWindow = () => {
@@ -34,13 +82,17 @@ const createWindow = () => {
     );
   }
 
+  restrictNavigation(mainWindow);
   registerIpc(mainWindow);
 };
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on('ready', createWindow);
+app.on('ready', () => {
+  applySecurityPolicies();
+  createWindow();
+});
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

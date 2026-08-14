@@ -281,7 +281,16 @@ Desteklenen runtime'lar (öncelik sırasıyla): `deno`, `node`, `quickjs`, `bun`
 
 Yani **ek bir binary indirmeden** (deno paketlemeden) bu gereksinim karşılanabiliyor.
 
-**Neden henüz açılmadı:** Runtime açık/kapalı karşılaştırması YouTube tarafındaki hız sınırına (art arda istekte HTTP 403) denk geldiği için temiz bir A/B yapılamadı. Açmadan önce ölçülecek: aynı video, aynı format profili, runtime açık ve kapalı — indirme başarısı ve seçilen format kimliği. Faz 5'te karara bağlanır (bkz. §15/6).
+**Ölçüm (Faz 5, aynı video, `-F` çıktısı):**
+
+| | Listelenen format satırı | İçinde mp4/m4a |
+|---|---|---|
+| Runtime kapalı | 31 | 17 |
+| Runtime açık (Electron'un Node'u) | 37 | 23 |
+
+Uyarı gerçek: JS runtime olmadan formatların bir kısmı hiç listelenmiyor ve eksilenler arasında mp4/m4a var — yani en çok MP4 profili (`bestvideo[ext=mp4]+bestaudio[ext=m4a]`) etkileniyor.
+
+**Neden hâlâ açılmadı:** Paketlenmiş uygulamada `RunAsNode: false` fuse'u bu modu kapatıyor (bkz. §15/6). Fuse'u açmak uygulama ikilisini genel amaçlı Node yorumlayıcısına çevirir; bu güvenlik ödünü verilmeden önce alternatif (deno ikilisini yt-dlp gibi indirip yönetmek) değerlendirilmeli. Karar kullanıcıya bırakıldı.
 
 ### Komut çalıştırma (enjeksiyon güvenliği)
 
@@ -399,7 +408,7 @@ Kapsam, riskin yoğunlaştığı yere odaklanır — UI piksel testi değil, sö
 |---|---|---|
 | Birim | Vitest | `formats.ts` argüman üretimi; progress JSON ayrıştırıcı (gerçek yt-dlp çıktısı fixture'ları); URL doğrulama (allowlist dışı host reddi, `javascript:` reddi); albüm adı yol temizliği (`../` kaçışı reddi); checksum doğrulama (bozuk dosya reddedilir) |
 | Entegrasyon | Vitest + sahte binary | Kuyruk davranışı: eşzamanlılık limiti, iptal, hata yayılımı — `yt-dlp` yerine kontrollü çıktı üreten sahte script |
-| Uçtan uca | Playwright `_electron` | Uygulama açılıyor; URL → probe → indir → kuyrukta "done"; iptal butonu işi durduruyor; binary eksikken hazırlık ekranı çıkıyor |
+| Uçtan uca | Playwright `_electron` | **Uygulanan (2 test):** paketlenmiş ana süreç açılıyor ve arayüz yükleniyor (üretim CSP'si doğrulanmış olur); URL → probe → kuyruğa ekle → "Tamamlandı" + dosya diskte. Binary'ler `YTDL_YTDLP_PATH` / `YTDL_FFMPEG_PATH` ile sahtelenir, ayarlar geçici `--user-data-dir` altına yazılır: ağsız ve kullanıcının klasörlerine dokunmadan çalışır. **Kapsam dışı bırakıldı:** iptal akışı ve hazırlık ekranı senaryoları — daha fazla test yüzeyi istenmedi |
 | Duman (manuel) | — | Her platformda gerçek bir kısa video indirme, her üç formatta |
 
 Ağ gerektiren gerçek indirme testleri CI'da varsayılan olarak çalışmaz (`@network` etiketi), yalnızca sürüm öncesi manuel tetiklenir.
@@ -408,16 +417,16 @@ Ağ gerektiren gerçek indirme testleri CI'da varsayılan olarak çalışmaz (`@
 
 ## 11. Güvenlik kontrol listesi
 
-- [ ] `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`
-- [ ] `ipcRenderer` renderer'a expose edilmiyor; yalnızca allowlist fonksiyonlar
-- [ ] Olay callback'lerine `IpcRendererEvent` geçirilmiyor
-- [ ] `spawn` argüman dizisiyle, `shell: true` yok, `exec` yok
-- [ ] URL protokol + host allowlist doğrulaması main tarafında (renderer doğrulamasına güvenilmez)
-- [ ] Albüm adı → yol geçişi (`path traversal`) engelleniyor
-- [ ] Binary indirmeleri yalnızca HTTPS + SHA-256 doğrulaması
-- [ ] `will-navigate` ve `setWindowOpenHandler` ile uygulama içi gezinme engelleniyor; dış bağlantılar `shell.openExternal`
-- [ ] Content-Security-Policy başlığı tanımlı (`default-src 'self'`) — kapak görselleri için `img-src 'self' https://*.ytimg.com data:` istisnası gerekir, aksi halde probe önizlemesindeki thumbnail engellenir
-- [ ] Üretim derlemesinde DevTools kapalı
+- [x] `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`
+- [x] `ipcRenderer` renderer'a expose edilmiyor; yalnızca allowlist fonksiyonlar
+- [x] Olay callback'lerine `IpcRendererEvent` geçirilmiyor
+- [x] `spawn` argüman dizisiyle, `shell: true` yok, `exec` yok
+- [x] URL protokol + host allowlist doğrulaması main tarafında (renderer doğrulamasına güvenilmez)
+- [x] Albüm adı → yol geçişi (`path traversal`) engelleniyor
+- [x] Binary indirmeleri yalnızca HTTPS + SHA-256 doğrulaması
+- [x] `will-navigate` ve `setWindowOpenHandler` ile uygulama içi gezinme engelleniyor; dış bağlantılar `shell.openExternal`
+- [x] Content-Security-Policy başlığı tanımlı (`default-src 'self'`); kapak görselleri için `img-src 'self' data: https://*.ytimg.com` istisnası var. Üretim politikasının arayüzü bozmadığı uçtan uca testle doğrulanıyor — CSP hatası doğrudan boş pencere demek olduğu için bu testin varlığı politikanın kendisi kadar önemli
+- [x] Üretim derlemesinde DevTools kapalı (yalnızca geliştirme sunucusu varken açılıyor)
 
 ---
 
@@ -482,7 +491,7 @@ Geliştirme sırasında netleştirilecek, planı bloklamayan konular:
 3. Arayüz dili: İngilizce mi Türkçe mi başlanacak (i18n yapısı her hâlükârda hazır bırakılır).
 4. `legacy/` Faz 7'de gerçekten silinsin mi, yoksa arşiv olarak kalsın mı?
 5. Auto-update (electron-updater) ne zaman devreye girsin — imzalama olmadan macOS'ta çalışmıyor.
-6. yt-dlp JS runtime'ı (`--js-runtimes node:<electron>` + `ELECTRON_RUN_AS_NODE=1`) açılsın mı? Teknik olarak çalıştığı doğrulandı; açık/kapalı indirme başarısı karşılaştırması yapılmadı (bkz. §6).
+6. yt-dlp JS runtime'ı (`--js-runtimes node:<electron>` + `ELECTRON_RUN_AS_NODE=1`) açılsın mı? Teknik olarak çalıştığı doğrulandı; açık/kapalı indirme başarısı karşılaştırması yapılmadı (bkz. §6). **Ek kısıt:** `forge.config.ts` içindeki `RunAsNode: false` fuse'u paketlenmiş uygulamada bu modu kapatır. Fuse'u açmak, uygulama ikilisinin genel amaçlı bir Node yorumlayıcısı olarak kullanılabilmesi demektir — güvenlik ödünü. Alternatif: deno ikilisini yt-dlp gibi indirip yönetmek (installer'ı büyütmez, indirme akışı zaten var).
 
 ---
 

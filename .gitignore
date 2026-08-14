@@ -97,3 +97,7 @@ legacy/.mvn/
 !legacy/.mvn/wrapper/maven-wrapper.jar
 .idea/
 *.iml
+
+# Playwright
+test-results/
+playwright-report/

@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  # Uçtan uca testler (npm run e2e) burada çalışmıyor: uygulamayı paketlemeyi ve
+  # bir görüntü sunucusunu gerektiriyor. Yerelde çalıştırılır; platform matrisiyle
+  # birlikte Faz 6'da CI'ya alınacak (bkz. docs/PLAN.md §10, §13).
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test

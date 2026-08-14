@@ -191,8 +191,10 @@ async function doEnsureBinaries(onState: (state: BinaryState) => void): Promise<
   const binDir = path.join(app.getPath('userData'), 'bin');
 
   try {
-    const ytdlpPath = await ensureYtDlp(binDir, onState);
-    const ffmpegPath = getFfmpegPath();
+    // Dışarıdan verilen yollar indirmenin yerine geçer: indirme kaynağı bozulduğunda
+    // kullanıcıya kaçış yolu (bkz. docs/PLAN.md §14) ve uçtan uca testler için giriş noktası.
+    const ytdlpPath = process.env.YTDL_YTDLP_PATH || (await ensureYtDlp(binDir, onState));
+    const ffmpegPath = process.env.YTDL_FFMPEG_PATH || getFfmpegPath();
     const [ytdlpVersion, ffmpegVersionLine] = await Promise.all([
       readVersion(ytdlpPath, ['--version']),
       readVersion(ffmpegPath, ['-version']),
