@@ -1,4 +1,5 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
+import path from 'node:path';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -10,6 +11,11 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    // electron-forge/plugin-vite node_modules'i pakete dahil etmiyor (her şeyin
+    // vite ile bundle edildiği varsayılır); ffmpeg bir binary olduğu için
+    // bundle edilemez, bu yüzden doğrudan Resources/ altına kopyalanır.
+    // bkz. src/main/binaries/ffmpeg.ts
+    extraResource: [path.join('node_modules', 'ffmpeg-static', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')],
   },
   rebuildConfig: {},
   makers: [
