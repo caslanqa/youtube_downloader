@@ -106,6 +106,13 @@ without shipping a new app version. If `deno` cannot be fetched the app still ru
 video formats stop being offered; `yt-dlp` and `ffmpeg` are mandatory and a failure to fetch
 them is reported on the preparation screen.
 
+**yt-dlp is checked for updates on every launch** (the *Keep yt-dlp up to date automatically*
+setting, on by default): its installed version is compared against the latest tag on GitHub
+and replaced if it is behind. yt-dlp breaks whenever YouTube changes something, so an installed
+copy that quietly ages past its release is the most common reason downloads start failing. The
+check never blocks startup — a network hiccup here just means the app continues with whatever
+copy is already on disk.
+
 ## Usage
 
 ### Download form
@@ -432,8 +439,10 @@ try again, or test with a different video to tell a per-video block apart from a
 connection-wide one. If it never clears, make sure `yt-dlp` is up to date (see the next item).
 
 **Downloads suddenly stop working.**
-YouTube changes break yt-dlp regularly. Delete `yt-dlp` from the app's `bin/` directory and
-restart; the latest release is fetched again on the next launch.
+YouTube changes break yt-dlp regularly, which is why the app checks for a newer release on
+every launch and updates automatically (see [First launch](#first-launch)). If that setting
+has been turned off, or the app has been offline for a while, delete `yt-dlp` from the app's
+`bin/` directory and restart; the latest release is fetched again on the next launch.
 
 **Some video formats are missing.**
 This usually means deno is not available, so yt-dlp cannot solve YouTube's JavaScript

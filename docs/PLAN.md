@@ -227,14 +227,24 @@ Bu, projenin en kritik ve mevcut uygulamanın en zayıf parçası. Seçilen stra
 ```
 Uygulama açılışı
   └─ ensureBinaries()
-       ├─ userData/bin/ içinde yt-dlp var mı?
-       │    ├─ Hayır → GitHub releases API'sinden son sürüm  → indir → checksum doğrula → chmod +x
-       │    └─ Evet  → son kontrol 24 saatten eskiyse arka planda sürüm kontrolü
-       ├─ ffmpeg için aynı akış
+       ├─ userData/bin/ içinde yt-dlp var mı ve çalıştırılabilir mi?
+       │    ├─ Hayır → GitHub releases API'sinden son sürüm → indir → checksum doğrula → chmod +x
+       │    └─ Evet  → ytdlpAutoUpdate açıksa: --version ile GitHub'ın son tag_name'i karşılaştırılır,
+       │                farklıysa aynı indir/doğrula akışıyla üzerine yazılır (en iyi çaba: ağ hatası
+       │                mevcut kopyayla devam eder, hiçbir zaman açılışı bloklamaz)
+       ├─ ffmpeg için aynı akış (güncelleme kontrolü olmadan)
        └─ durum renderer'a 'binaries:state' ile akıtılır
 ```
 
 Konum: `app.getPath('userData')/bin/`. Installer'ın içine değil, kullanıcı verisine yazılır — yazma izni sorunu çıkmaz, uygulama güncellemesi binary'yi silmez.
+
+**Sürüm kontrolü, Faz 7 sonrasında bir kullanıcı raporuyla tamamlandı.** Yukarıdaki akış aslında baştan böyle tasarlanmıştı ama kod hiç yazılmamıştı: `ensureYtDlp` yalnızca "dosya var mı ve çalışıyor mu" bakıyordu, sürümüne hiç bakmıyordu — bir kez inen yt-dlp, elle silinmedikçe sonsuza dek kullanılıyordu. Kullanıcı bir videoda ısrarla "403 Forbidden" alınca (yt-dlp YouTube'un JS zorluklarını çözemeyince tipik olarak bu hatayı verir) yerel sürümü GitHub'ın son sürümüyle karşılaştırdık; bu ortamda ikisi aynıydı ama kontrolün kodda hiç var olmadığı ortaya çıktı — başka bir makinede aylarca eski bir kopya sessizce kalabilirdi.
+
+Orijinal tasarım "son kontrolün üzerinden 24 saat geçmişse" diye bir eşik öngörüyordu; onun yerine **her açılışta** kontrol edilecek şekilde basitleştirildi: GitHub'ın kimliksiz API sınırı (saatte 60 istek) tek kullanıcılı bir masaüstü uygulaması için bolca yeterli, eşik mekanizması eklemek 24 saat boyunca gerçek bir bozulmayı gizleme riskini taşıyor. Kontrol, mevcut `ytdlpAutoUpdate` ayarıyla (varsayılan açık) kapatılabiliyor; ayarlar açılır kutusuna bir onay kutusu eklendi. ffmpeg ve deno için aynı kontrol eklenmedi — ffmpeg ve deno, YouTube'daki değişikliklerle bozulan taraf değil, yalnızca yt-dlp'nin YouTube çıkarımı sürümle birebir bağlı.
+
+Bu değişiklik ayrıca gizli bir riski ortaya çıkardı ve düzeltti: `downloadWithProgress` checksum'u dosya zaten `localPath`'e taşındıktan **sonra** doğruluyordu. İlk kurulumda zararsızdı (önceden hiçbir şey yoktu, silinecek bir şey de yoktu) ama güncelleme senaryosunda bozuk bir indirme, halihazırda çalışan eski binary'yi silip yerine hiçbir şey bırakmayabilirdi. Artık doğrulama `.part` dosyası üzerinde, `rename` ile yer değiştirmeden **önce** yapılıyor; doğrulama başarısız olursa mevcut çalışan binary'ye hiç dokunulmuyor.
+
+Gerçek uçtan uca doğrulama: yerel `yt-dlp` sahte bir eski sürüm (`2025.01.01`) raporlayacak şekilde değiştirildi, uygulama açıldı, GitHub'ın son sürümüyle (`2026.07.04`) karşılaştırdı, otomatik indirip üzerine yazdı — yeni binary çalışıyor ve doğru sürümü raporluyor.
 
 ### Platform asset eşlemesi (yt-dlp releases)
 

@@ -34,9 +34,10 @@ export function registerIpc(mainWindow: BrowserWindow): void {
   registered = true;
 
   ipcMain.handle('binaries:ensure', async () => {
-    const result = await ensureBinaries((state: BinaryState) => {
-      currentWindow?.webContents.send('binaries:state', state);
-    });
+    const result = await ensureBinaries(
+      (state: BinaryState) => currentWindow?.webContents.send('binaries:state', state),
+      { checkForYtDlpUpdate: effectiveSettings().ytdlpAutoUpdate },
+    );
     binaryPaths = result;
     // The queue can only run jobs once the binary paths are known.
     configureQueue(result, (job: Job) => currentWindow?.webContents.send('job:update', job));

@@ -48,6 +48,10 @@ async function downloadWithProgress(
   url: string,
   destPath: string,
   onPercent: (percent: number) => void,
+  // Called on the .part file before it replaces destPath. This matters for updates: if
+  // verification throws here, destPath (an existing, working binary) is never touched, so a
+  // corrupted download can only fail to update, never destroy what was already working.
+  verify?: (partPath: string) => Promise<void>,
 ): Promise<void> {
   const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
   if (!res.ok || !res.body) {
@@ -70,7 +74,8 @@ async function downloadWithProgress(
       },
       fs.createWriteStream(partPath),
     );
-    // A half-written file is never executed: it stays as .part until the download completes.
+    if (verify) await verify(partPath);
+    // A half-written or unverified file is never executed: it stays as .part until both steps pass.
     await fsp.rename(partPath, destPath);
   } catch (err) {
     await fsp.rm(partPath, { force: true }); // leftovers must not poison the next attempt
@@ -120,17 +125,17 @@ async function isUsableBinary(binPath: string, versionArgs: string[] = ['--versi
   }
 }
 
-async function ensureYtDlp(binDir: string, onState: (state: BinaryState) => void): Promise<string> {
-  const localPath = path.join(binDir, getYtDlpLocalName());
-  if (fs.existsSync(localPath)) {
-    if (await isUsableBinary(localPath)) {
-      return localPath;
-    }
-    await fsp.rm(localPath, { force: true }); // broken copy: download it again
-  }
+/** True when the installed version does not match the latest published release tag. */
+export function isOutdated(installedVersion: string, latestTag: string): boolean {
+  return installedVersion.trim() !== latestTag.trim();
+}
 
-  onState({ kind: 'downloading', name: 'yt-dlp', percent: 0 });
-  const release = await fetchLatestRelease(YTDLP_REPO);
+async function downloadYtDlpRelease(
+  binDir: string,
+  release: ReleaseInfo,
+  onState: (state: BinaryState) => void,
+): Promise<string> {
+  const localPath = path.join(binDir, getYtDlpLocalName());
   const assetName = getYtDlpAssetName();
   const asset = release.assets.find((a) => a.name === assetName);
   const sumsAsset = release.assets.find((a) => a.name === YTDLP_SUMS_ASSET);
@@ -138,18 +143,56 @@ async function ensureYtDlp(binDir: string, onState: (state: BinaryState) => void
   if (!sumsAsset) throw new Error(`yt-dlp ${YTDLP_SUMS_ASSET} not found`);
 
   await fsp.mkdir(binDir, { recursive: true });
-  await downloadWithProgress(asset.browser_download_url, localPath, (percent) =>
-    onState({ kind: 'downloading', name: 'yt-dlp', percent }),
+  const sumsContent = await fetchText(sumsAsset.browser_download_url);
+  await downloadWithProgress(
+    asset.browser_download_url,
+    localPath,
+    (percent) => onState({ kind: 'downloading', name: 'yt-dlp', percent }),
+    async (partPath) => {
+      if (!(await verifyChecksum(partPath, assetName, sumsContent))) {
+        throw new Error('yt-dlp checksum verification failed; the download was discarded');
+      }
+    },
   );
 
-  const sumsContent = await fetchText(sumsAsset.browser_download_url);
-  const isValid = await verifyChecksum(localPath, assetName, sumsContent);
-  if (!isValid) {
-    await fsp.rm(localPath, { force: true });
-    throw new Error('yt-dlp checksum verification failed; the file was deleted');
+  await makeExecutable(localPath);
+  return localPath;
+}
+
+/**
+ * `autoUpdate` mirrors the plan's original intent (docs/PLAN.md §6): yt-dlp breaks whenever
+ * YouTube changes something, so a copy that silently ages past its release tag is the most
+ * likely reason downloads start failing. The check is best-effort — a network hiccup here
+ * must not stop the app from starting with whatever copy is already on disk.
+ */
+async function ensureYtDlp(
+  binDir: string,
+  onState: (state: BinaryState) => void,
+  autoUpdate: boolean,
+): Promise<string> {
+  const localPath = path.join(binDir, getYtDlpLocalName());
+  const usable = fs.existsSync(localPath) && (await isUsableBinary(localPath));
+  if (!usable) {
+    if (fs.existsSync(localPath)) await fsp.rm(localPath, { force: true }); // broken copy
+    onState({ kind: 'downloading', name: 'yt-dlp', percent: 0 });
+    return downloadYtDlpRelease(binDir, await fetchLatestRelease(YTDLP_REPO), onState);
   }
 
-  await makeExecutable(localPath);
+  if (!autoUpdate) return localPath;
+
+  try {
+    const [installedVersion, release] = await Promise.all([
+      readVersion(localPath, ['--version']),
+      fetchLatestRelease(YTDLP_REPO),
+    ]);
+    if (isOutdated(installedVersion, release.tag_name)) {
+      onState({ kind: 'downloading', name: 'yt-dlp', percent: 0 });
+      return await downloadYtDlpRelease(binDir, release, onState);
+    }
+  } catch (err) {
+    console.warn('Could not check for a yt-dlp update, using the existing copy:', err);
+  }
+
   return localPath;
 }
 
@@ -184,14 +227,16 @@ async function ensureFfmpeg(binDir: string, onState: (state: BinaryState) => voi
   if (!asset) throw new Error(`ffmpeg release asset not found: ${assetName}`);
 
   await fsp.mkdir(binDir, { recursive: true });
-  await downloadWithProgress(asset.browser_download_url, localPath, (percent) =>
-    onState({ kind: 'downloading', name: 'ffmpeg', percent }),
+  await downloadWithProgress(
+    asset.browser_download_url,
+    localPath,
+    (percent) => onState({ kind: 'downloading', name: 'ffmpeg', percent }),
+    async (partPath) => {
+      if (!(await verifyDigest(partPath, asset.digest))) {
+        throw new Error('ffmpeg checksum verification failed; the download was discarded');
+      }
+    },
   );
-
-  if (!(await verifyDigest(localPath, asset.digest))) {
-    await fsp.rm(localPath, { force: true });
-    throw new Error('ffmpeg checksum verification failed; the file was deleted');
-  }
 
   await makeExecutable(localPath);
   return localPath;
@@ -280,13 +325,16 @@ interface BinaryPaths {
 let inFlight: Promise<BinaryPaths> | null = null;
 let ready: { paths: BinaryPaths; state: BinaryState } | null = null;
 
-export function ensureBinaries(onState: (state: BinaryState) => void): Promise<BinaryPaths> {
+export function ensureBinaries(
+  onState: (state: BinaryState) => void,
+  options: { checkForYtDlpUpdate: boolean },
+): Promise<BinaryPaths> {
   if (ready) {
     onState(ready.state);
     return Promise.resolve(ready.paths);
   }
   if (!inFlight) {
-    inFlight = doEnsureBinaries(onState).catch((err) => {
+    inFlight = doEnsureBinaries(onState, options).catch((err) => {
       inFlight = null; // failure is not permanent: the user can retry
       throw err;
     });
@@ -294,14 +342,18 @@ export function ensureBinaries(onState: (state: BinaryState) => void): Promise<B
   return inFlight;
 }
 
-async function doEnsureBinaries(onState: (state: BinaryState) => void): Promise<BinaryPaths> {
+async function doEnsureBinaries(
+  onState: (state: BinaryState) => void,
+  options: { checkForYtDlpUpdate: boolean },
+): Promise<BinaryPaths> {
   onState({ kind: 'checking' });
   const binDir = path.join(app.getPath('userData'), 'bin');
 
   try {
     // Externally provided paths replace the download: an escape hatch when a download source
     // breaks (docs/PLAN.md §14) and the injection point for end-to-end tests.
-    const ytdlpPath = process.env.YTDL_YTDLP_PATH || (await ensureYtDlp(binDir, onState));
+    const ytdlpPath =
+      process.env.YTDL_YTDLP_PATH || (await ensureYtDlp(binDir, onState, options.checkForYtDlpUpdate));
     const ffmpegPath = process.env.YTDL_FFMPEG_PATH || (await ensureFfmpeg(binDir, onState));
     const [ytdlpVersion, ffmpegVersionLine] = await Promise.all([
       readVersion(ytdlpPath, ['--version']),

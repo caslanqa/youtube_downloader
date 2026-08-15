@@ -43,6 +43,7 @@ const EN = {
   languageTr: 'Turkish',
   languageEn: 'English',
   numberingLabel: 'Number playlist files',
+  ytdlpAutoUpdateLabel: 'Keep yt-dlp up to date automatically',
 
   queueHeading: 'Download queue',
   queueEmpty: 'The queue is empty. Add a link above to start.',
@@ -100,6 +101,7 @@ const TR: Record<keyof typeof EN, string> = {
   languageTr: 'Türkçe',
   languageEn: 'İngilizce',
   numberingLabel: 'Oynatma listesi dosyalarını numaralandır',
+  ytdlpAutoUpdateLabel: "yt-dlp'yi otomatik güncel tut",
 
   queueHeading: 'İndirme kuyruğu',
   queueEmpty: 'Kuyruk boş. Yukarıya bir bağlantı ekleyerek başlayın.',

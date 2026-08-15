@@ -97,6 +97,19 @@ export function SettingsPopover({
             {t('numberingLabel')}
           </label>
         </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            id="ytdlp-auto-update"
+            type="checkbox"
+            checked={settings.ytdlpAutoUpdate}
+            onChange={(event) => onChange({ ytdlpAutoUpdate: event.target.checked })}
+            className="size-4 accent-[var(--color-brand)]"
+          />
+          <label className="text-sm text-ink" htmlFor="ytdlp-auto-update">
+            {t('ytdlpAutoUpdateLabel')}
+          </label>
+        </div>
       </div>
     </div>
   );
