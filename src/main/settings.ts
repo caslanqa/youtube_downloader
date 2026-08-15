@@ -7,6 +7,7 @@ import type { Settings } from '../shared/types';
 const DEFAULTS: Settings = {
   destination: '', // empty means ~/Downloads/YTDownloader is used at runtime (see ipc.ts)
   defaultFormat: 'mp3',
+  defaultQuality: 'best',
   concurrency: 2,
   numberPlaylistItems: true,
   embedMetadata: true,

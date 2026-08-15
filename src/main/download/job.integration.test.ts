@@ -15,6 +15,7 @@ function makeRequest(destination: string): JobRequest {
   return {
     url: 'https://www.youtube.com/watch?v=abc',
     format: 'mp3',
+    quality: 'best',
     albumName: 'TestAlbum',
     destination,
     numberPlaylistItems: false,

@@ -9,6 +9,10 @@ export type BinaryState =
 
 export type Format = 'mp3' | 'mp4' | 'webm';
 
+// Height caps for yt-dlp's `[height<=N]` filter; 'best' leaves the resolution unrestricted.
+// Ignored for the 'mp3' format, which is always audio-only regardless of the selected value.
+export type VideoQuality = 'best' | '2160' | '1440' | '1080' | '720' | '480' | '360';
+
 export interface MediaInfo {
   id: string;
   title: string;
@@ -21,6 +25,8 @@ export interface MediaInfo {
 export interface JobRequest {
   url: string;
   format: Format;
+  /** Ignored when format is 'mp3'. */
+  quality: VideoQuality;
   albumName: string;
   /** Base folder chosen by the user; the final path is `destination/albumName`. */
   destination: string;
@@ -46,6 +52,7 @@ export type Language = 'tr' | 'en';
 export interface Settings {
   destination: string;
   defaultFormat: Format;
+  defaultQuality: VideoQuality;
   concurrency: number;
   numberPlaylistItems: boolean;
   embedMetadata: boolean;

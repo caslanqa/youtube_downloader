@@ -6,7 +6,7 @@ import path from 'node:path';
 import { spawnEnv } from '../binaries/runtimeEnv';
 import type { JobRequest, JobStatus } from '../../shared/types';
 import { summarizeDownloadError } from './errors';
-import { OUTPUT_TEMPLATE, PROFILES } from './formats';
+import { OUTPUT_TEMPLATE, buildFormatArgs } from './formats';
 import { resolveDestination, validateUrl } from './validate';
 
 const STDERR_TAIL_LINES = 50;
@@ -64,7 +64,7 @@ export function parseProgressLine(line: string): ParsedProgress | null {
 
 function buildArgs(request: JobRequest, outputDir: string, ffmpegPath: string): string[] {
   return [
-    ...PROFILES[request.format],
+    ...buildFormatArgs(request.format, request.quality),
     '--ffmpeg-location',
     ffmpegPath,
     '--no-color',

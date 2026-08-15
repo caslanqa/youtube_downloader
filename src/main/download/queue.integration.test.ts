@@ -13,6 +13,7 @@ function makeRequest(destination: string, albumName: string): JobRequest {
   return {
     url: 'https://www.youtube.com/watch?v=abc',
     format: 'mp3',
+    quality: 'best',
     albumName,
     destination,
     numberPlaylistItems: false,

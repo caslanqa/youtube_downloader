@@ -119,7 +119,9 @@ copy is already on disk.
 
 1. **Paste a YouTube link.** The app inspects it and shows the title, duration and, for
    playlists, the number of items.
-2. **Pick a format**: MP3 (audio), MP4 or WebM (video).
+2. **Pick a format**: MP3 (audio), MP4 or WebM (video). Choosing MP4 or WebM reveals a
+   **quality** selector — Best available, or a resolution cap from 2160p down to 360p — passed
+   to yt-dlp as a `[height<=N]` filter. MP3 has no such control since it is audio-only.
 3. **Album name** — auto-filled from the title, editable. Files are written into a subfolder
    with this name, which keeps a playlist together. Clearing it falls back to `Downloads`.
 4. **Destination folder** — defaults to `~/Downloads/YTDownloader`; *Choose* changes it and the

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Format, JobRequest, MediaInfo, Settings } from '../../shared/types';
+import type { Format, JobRequest, MediaInfo, Settings, VideoQuality } from '../../shared/types';
 import { useT } from '../i18n';
 import { useProbe } from '../useProbe';
 import { BUTTON_PRIMARY, BUTTON_QUIET, FIELD, LABEL, PANEL } from '../ui';
@@ -59,6 +59,7 @@ export function DownloadForm({
     const request: JobRequest = {
       url: url.trim(),
       format: settings.defaultFormat,
+      quality: settings.defaultQuality,
       albumName: albumName.trim(),
       destination: settings.destination,
       numberPlaylistItems: settings.numberPlaylistItems,
@@ -110,23 +111,45 @@ export function DownloadForm({
             <option value="webm">{t('formatWebm')}</option>
           </select>
         </div>
-        <div className="flex-1">
-          <label className={LABEL} htmlFor="album">
-            {t('albumLabel')}
-          </label>
-          <input
-            id="album"
-            type="text"
-            value={albumName}
-            onChange={(event) => {
-              setAlbumEdited(true);
-              setAlbumName(event.target.value);
-            }}
-            placeholder={t('albumPlaceholder')}
-            aria-describedby="album-hint"
-            className={FIELD}
-          />
-        </div>
+        {settings.defaultFormat !== 'mp3' && (
+          <div className="flex-1">
+            <label className={LABEL} htmlFor="quality">
+              {t('qualityLabel')}
+            </label>
+            <select
+              id="quality"
+              value={settings.defaultQuality}
+              onChange={(event) => onPatch({ defaultQuality: event.target.value as VideoQuality })}
+              className={FIELD}
+            >
+              <option value="best">{t('qualityBest')}</option>
+              <option value="2160">2160p (4K)</option>
+              <option value="1440">1440p (2K)</option>
+              <option value="1080">1080p</option>
+              <option value="720">720p</option>
+              <option value="480">480p</option>
+              <option value="360">360p</option>
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <label className={LABEL} htmlFor="album">
+          {t('albumLabel')}
+        </label>
+        <input
+          id="album"
+          type="text"
+          value={albumName}
+          onChange={(event) => {
+            setAlbumEdited(true);
+            setAlbumName(event.target.value);
+          }}
+          placeholder={t('albumPlaceholder')}
+          aria-describedby="album-hint"
+          className={FIELD}
+        />
       </div>
       <p id="album-hint" className="mt-1.5 text-xs text-muted">
         {t('albumHint')}
