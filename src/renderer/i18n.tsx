@@ -30,6 +30,9 @@ const EN = {
   searching: 'Searching…',
   searchNoResults: 'No videos found.',
 
+  downloadButton: 'Download',
+  downloadPopoverTitle: 'Download this video',
+
   formatLabel: 'Format',
   formatMp3: 'MP3 (audio)',
   formatMp4: 'MP4 (video)',
@@ -102,6 +105,9 @@ const TR: Record<keyof typeof EN, string> = {
   searchButton: 'Ara',
   searching: 'Aranıyor…',
   searchNoResults: 'Video bulunamadı.',
+
+  downloadButton: 'İndir',
+  downloadPopoverTitle: 'Bu videoyu indir',
 
   formatLabel: 'Format',
   formatMp3: 'MP3 (ses)',

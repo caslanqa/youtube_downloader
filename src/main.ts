@@ -8,7 +8,8 @@ if (started) {
   app.quit();
 }
 
-// Thumbnails come from YouTube's CDN; no other remote origin is allowed (docs/PLAN.md §11).
+// Thumbnails come from YouTube's CDN and the player embed from its privacy-enhanced domain;
+// no other remote origin is allowed (docs/PLAN.md §11).
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
@@ -20,7 +21,7 @@ const CSP = [
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
-  "frame-src 'none'",
+  "frame-src https://www.youtube-nocookie.com",
 ].join('; ');
 
 /** The dev server needs websockets and inline scripts for HMR; production allows neither. */

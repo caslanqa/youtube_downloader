@@ -1,7 +1,9 @@
 # YouTube Downloader
 
-Desktop app for downloading YouTube videos and playlists as MP3, MP4 or WebM.
-Runs on macOS, Windows and Linux. Built with Electron, React and TypeScript.
+Desktop app for watching and downloading YouTube videos and playlists. Paste a link or search,
+watch it in an embedded player, and download it as MP3, MP4 or WebM from a popup below the
+player when you want to. Runs on macOS, Windows and Linux. Built with Electron, React and
+TypeScript.
 
 [![CI](https://github.com/caslanqa/youtube_downloader/actions/workflows/ci.yml/badge.svg)](https://github.com/caslanqa/youtube_downloader/actions/workflows/ci.yml)
 
@@ -16,9 +18,10 @@ Runs on macOS, Windows and Linux. Built with Electron, React and TypeScript.
   - [Opening an unsigned build](#opening-an-unsigned-build)
 - [First launch](#first-launch)
 - [Usage](#usage)
-  - [Download form](#download-form)
+  - [Playing a video](#playing-a-video)
   - [Searching YouTube](#searching-youtube)
     - [Enabling search](#enabling-search)
+  - [Downloading](#downloading)
   - [Queue](#queue)
   - [Settings](#settings)
 - [Where files end up](#where-files-end-up)
@@ -44,10 +47,12 @@ Runs on macOS, Windows and Linux. Built with Electron, React and TypeScript.
 
 ## Features
 
-- **Formats**: MP3 (audio), MP4 and WebM (video), including playlists.
-- **Preview before download**: pasting a link shows the title, duration and playlist size.
+- **Watch first**: pasting a link or picking a search result plays the video inline before you
+  decide whether to download it, in YouTube's own embedded player.
 - **Search YouTube**: find a video by name instead of pasting a link (needs a free YouTube Data
   API key you provide yourself — see [Enabling search](#enabling-search)).
+- **Download as a popup**: MP3 (audio), MP4 or WebM (video), including playlists, from a button
+  below the player — downloading is a side action, not the main event.
 - **Real progress**: percentage, speed and ETA parsed from yt-dlp's structured output.
 - **Queue**: add several links without waiting; two downloads run at a time by default.
 - **Cancellable**: a running download stops on request and its partial files are cleaned up.
@@ -119,18 +124,12 @@ copy is already on disk.
 
 ## Usage
 
-### Download form
+### Playing a video
 
-1. **Paste a YouTube link.** The app inspects it and shows the title, duration and, for
-   playlists, the number of items.
-2. **Pick a format**: MP3 (audio), MP4 or WebM (video). Choosing MP4 or WebM reveals a
-   **quality** selector — Best available, or a resolution cap from 2160p down to 360p — passed
-   to yt-dlp as a `[height<=N]` filter. MP3 has no such control since it is audio-only.
-3. **Album name** — auto-filled from the title, editable. Files are written into a subfolder
-   with this name, which keeps a playlist together. Clearing it falls back to `Downloads`.
-4. **Destination folder** — defaults to `~/Downloads/YTDownloader`; *Choose* changes it and the
-   selection is remembered for the next download.
-5. **Add to queue.** The form clears immediately so the next link can be entered.
+**Paste a YouTube link** in the field at the top. Once the app has inspected it, the title and
+duration (or item count, for a playlist) appear above an embedded player — the same player
+YouTube itself uses for embeds — and you can watch it right there. Nothing is downloaded just
+by playing it.
 
 ### Searching YouTube
 
@@ -142,9 +141,9 @@ that in minutes. Repeating the same search within the same session reuses the ea
 instead of spending quota again.
 
 Clicking a result does not download it directly — it fills in the link field and switches back
-to **Paste link**, so the exact same preview, format/quality, album name and destination
-controls apply to it as to any pasted link. There is no separate "download from search" code
-path to keep in sync with the regular one.
+to **Paste link**, so it plays in the same embedded player as any pasted link, with the same
+Download popup available underneath. There is no separate "download from search" code path to
+keep in sync with the regular one.
 
 #### Enabling search
 
@@ -163,6 +162,20 @@ The free tier's default quota is 10,000 units/day, and a search costs 100 units 
 searches a day. Google's Cloud Console shows current usage under **APIs & Services → YouTube
 Data API v3 → Quotas**. There is no cost unless you explicitly request a quota increase and
 attach billing; a plain search-only key stays free.
+
+### Downloading
+
+Downloading is a **Download** button below the player, which opens a popup with:
+
+1. **Format**: MP3 (audio), MP4 or WebM (video). Choosing MP4 or WebM reveals a **quality**
+   selector — Best available, or a resolution cap from 2160p down to 360p — passed to yt-dlp as
+   a `[height<=N]` filter. MP3 has no such control since it is audio-only.
+2. **Album name** — auto-filled from the title, editable. Files are written into a subfolder
+   with this name, which keeps a playlist together. Clearing it falls back to `Downloads`.
+3. **Destination folder** — defaults to `~/Downloads/YTDownloader`; *Choose* changes it and the
+   selection is remembered for the next download.
+4. **Add to queue.** The popup closes; the player keeps playing the same video, and the job
+   appears in the queue below.
 
 ### Queue
 
@@ -215,20 +228,27 @@ main process behind an explicit IPC allowlist.
 │ Main process (Node.js)                                       │
 │  ├── binaries/   download + SHA-256 verification, versions   │
 │  ├── download/   queue, yt-dlp processes, progress, cancel   │
+│  ├── search/     YouTube Data API v3 client (API key stays   │
+│  │               here; never sent to the renderer)           │
 │  ├── settings    persisted configuration                     │
 │  └── ipc         ipcMain.handle registrations                │
 └───────────────────────────┬──────────────────────────────────┘
                             │ contextBridge (allowlist only)
 ┌───────────────────────────┴──────────────────────────────────┐
 │ Preload (isolated world)                                     │
-│  window.api = { probe, enqueue, cancel, onJobUpdate, … }     │
+│  window.api = { probe, enqueue, cancel, searchVideos, … }    │
 └───────────────────────────┬──────────────────────────────────┘
                             │
 ┌───────────────────────────┴──────────────────────────────────┐
 │ Renderer (React, contextIsolation, sandbox, no nodeIntegration)│
-│  UI and queue rendering; no business logic                   │
+│  UI, queue rendering and the embedded YouTube <iframe>;       │
+│  no business logic                                            │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+The renderer's only reach outside its own origin is the YouTube player `<iframe>`
+(`youtube-nocookie.com`, allowed by `frame-src`); everything else it does goes through the
+preload's fixed function list.
 
 ### Managed binaries
 
@@ -450,8 +470,9 @@ the packages are published through an apt or dnf repository, which needs a GPG k
 
 - The renderer runs with `contextIsolation`, `sandbox` and without `nodeIntegration`.
 - The preload exposes a fixed allowlist of functions; `ipcRenderer` itself is never exposed.
-- A Content-Security-Policy header is applied to the session; only YouTube thumbnail images may
-  be loaded from a remote origin.
+- A Content-Security-Policy header is applied to the session: YouTube thumbnail images may load
+  from a remote origin, and the embedded player may only load from `youtube-nocookie.com`,
+  nothing else.
 - In-app navigation is blocked and external links open in the system browser.
 - yt-dlp is spawned with an argument array, never through a shell.
 - URLs are validated in the main process against an https + YouTube host allowlist, and album
@@ -465,6 +486,12 @@ the packages are published through an apt or dnf repository, which needs a GPG k
 Check the internet connection and restart the app. If GitHub is blocked on your network,
 download the tools manually and point the app at them with `YTDL_YTDLP_PATH`,
 `YTDL_FFMPEG_PATH` and `YTDL_DENO_PATH`.
+
+**The player shows a blank or black box instead of the video.**
+Some publishers disable embedding for their videos (age-restricted, some music labels, some
+movie uploads); YouTube's own player shows a "Watch on YouTube" message inside the frame in
+that case. This does not stop the video from being downloadable — it is a separate restriction
+from the download itself.
 
 **A download fails with "video unavailable".**
 The video may be age- or region-restricted. *Details* on the failed job shows yt-dlp's own

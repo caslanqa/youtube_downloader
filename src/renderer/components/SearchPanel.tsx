@@ -1,14 +1,8 @@
 import { useRef, useState } from 'react';
 import type { SearchResultItem } from '../../shared/types';
+import { formatDuration } from '../format';
 import { useT } from '../i18n';
 import { BUTTON_PRIMARY, FIELD } from '../ui';
-
-function formatDuration(seconds?: number): string | null {
-  if (seconds === undefined) return null;
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
 
 /**
  * YouTube Data API search has a small daily quota (100 free search calls/day per key), so this

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { BinaryState, Job, JobRequest, MediaInfo, Settings } from '../shared/types';
-import { DownloadForm } from './components/DownloadForm';
+import { PlayerPanel } from './components/PlayerPanel';
 import { PrepScreen } from './components/PrepScreen';
 import { QueueList } from './components/QueueList';
 import { SETTINGS_POPOVER_ID, SettingsPopover } from './components/SettingsPopover';
@@ -80,7 +80,7 @@ function Workspace({
 
   return (
     <main className="min-h-screen px-6 py-10">
-      <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      <div className="mx-auto flex max-w-3xl flex-col gap-6">
         <header className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{t('appTitle')}</h1>
@@ -99,7 +99,7 @@ function Workspace({
           <SettingsPopover settings={settings} onChange={onPatch} />
         </header>
 
-        <DownloadForm settings={settings} onPatch={onPatch} onEnqueue={onEnqueue} />
+        <PlayerPanel settings={settings} onPatch={onPatch} onEnqueue={onEnqueue} />
         <QueueList jobs={jobs} />
       </div>
     </main>

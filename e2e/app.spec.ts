@@ -61,9 +61,33 @@ test('loads the main UI once preparation finishes', async () => {
   await expect(page.getByLabel('YouTube link')).toBeVisible();
 });
 
-test('probes a link, queues the job and completes it', async () => {
+test('probes a link, plays it, queues the job and completes it', async () => {
   await page.getByLabel('YouTube link').fill('https://www.youtube.com/watch?v=abc123');
   await expect(page.getByText('Fake Test Video')).toBeVisible();
+
+  // Confirms the CSP frame-src change actually allows the embed to load, not just that the
+  // <iframe> element exists in the DOM (which CSP would still permit even while blocking it).
+  // This needs real network access, unlike the rest of the e2e suite.
+  const frame = await page.waitForEvent('framenavigated', {
+    predicate: (candidate) => candidate.url().startsWith('https://www.youtube-nocookie.com/embed/abc123'),
+    timeout: 15_000,
+  });
+  expect(frame.url()).toContain('abc123');
+
+  await page.getByRole('button', { name: 'Download', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Download this video' })).toBeVisible();
+
+  // The Download button sits below the player, close to the bottom of the window, so opening
+  // downward (like the settings popover does) would clip most of this taller popover off
+  // screen — this is exactly what `position-try-fallbacks: flip-block` in index.css exists to
+  // avoid by flipping it above the button instead. Assert it actually fits.
+  // page.viewportSize() is null for Electron windows (they use the native window size, not a
+  // configured Playwright viewport), so read the real dimension from the document instead.
+  const windowHeight = await page.evaluate(() => window.innerHeight);
+  const popoverBox = await page.locator('#download-popover').boundingBox();
+  expect(popoverBox).not.toBeNull();
+  expect(popoverBox!.y).toBeGreaterThanOrEqual(0);
+  expect(popoverBox!.y + popoverBox!.height).toBeLessThanOrEqual(windowHeight);
 
   // The album name is auto-filled from the probed title and is not overwritten once typed.
   await expect(page.getByLabel('Album name')).toHaveValue('Fake Test Video');

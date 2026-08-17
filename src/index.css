@@ -71,6 +71,23 @@
     right: anchor(right);
   }
 
+  /* Same anchoring for the download popover, opened from the button below the player. It
+     aligns to the trigger's LEFT edge rather than the right: unlike the gear icon (pinned to
+     the window's top-right corner), this button sits inside the main content column. */
+  .download-anchor {
+    anchor-name: --download-anchor;
+  }
+
+  .download-popover {
+    position: absolute;
+    position-anchor: --download-anchor;
+    inset: auto;
+    margin: 0;
+    top: calc(anchor(bottom) + 0.5rem);
+    left: anchor(left);
+    position-try-fallbacks: flip-block;
+  }
+
   /* WCAG 2.3.3: transitions are disabled for users who prefer reduced motion. */
   @media (prefers-reduced-motion: reduce) {
     *,

@@ -569,6 +569,47 @@ Gerçek Google API anahtarıyla test edilmedi (kullanıcının kendi anahtarın�
 
 ---
 
-## 17. Sonraki adım
+## 17. Video oynatıcı ve indirme pop-up'ı
+
+Bu, uygulamanın kimliğini değiştiren bir karar: "linki yapıştır, indir" aracından "videoyu izle, istersen indir" aracına geçiş. İndirme artık birincil eylem değil — oynatıcının altındaki bir düğmenin açtığı pop-up.
+
+### Neden gömülü oynatıcı, yt-dlp değil
+
+Oynatma için yt-dlp'ye hiç ihtiyaç yok. YouTube'un resmî `<iframe>` gömme mekanizması (`https://www.youtube-nocookie.com/embed/{id}`) tarayıcı seviyesinde çalışıyor — kendi oynatma kontrollerini, tam ekranını, hata durumlarını (video kaldırılmış, gömme kapalı) kendisi yönetiyor. Context7'nin resmî YouTube dokümantasyonundan doğrulanan iki URL şekli:
+
+```
+https://www.youtube.com/embed/VIDEO_ID                      # tekil video
+https://www.youtube.com/embed?listType=playlist&list=PL_ID  # oynatma listesi
+```
+
+`youtube-nocookie.com` (youtube.com yerine) Google'ın "Gizlilik Geliştirilmiş Mod" alanı — oynatma başlamadan çerez bırakmıyor.
+
+### Neden JS API değil, çıplak `<iframe>`
+
+YouTube'un IFrame Player API'si (`enablejsapi=1` + `iframe_api` script'i + `postMessage` köprüsü) programatik kontrol sağlıyor (kendi arayüzümüzden oynat/durdur, oynatma pozisyonunu okuma). Bunların hiçbiri istenmedi — kullanıcı YouTube'un kendi oynatıcı arayüzüyle etkileşiyor. API'siz çıplak `<iframe>` yeterli ve çok daha az kod. Programatik kontrol istenirse (örn. "şu anki oynatma pozisyonundan indir") bu karar tek bir dosyada (`VideoPlayer.tsx`) değişir.
+
+Gömme kapalıysa (hata kodu 101/150, "video owner does not allow embedding") YouTube'un kendi `<iframe>` içeriği bunu kendi arayüzüyle gösteriyor ("Watch on YouTube" bağlantısıyla) — bizim ele almamız gereken bir durum yok.
+
+### CSP: `frame-src 'none'` → tek bir izinli köken
+
+`frame-src` daha önce tüm iframe'leri engelliyordu; şimdi yalnızca `https://www.youtube-nocookie.com`'a izin veriyor. Bu direktif yalnızca iframe'in **ilk yükleneceği** kökeni kısıtlıyor — iframe içindeki YouTube sayfasının kendi alt kaynakları (googlevideo.com medya akışı, ytimg.com küçük resimleri) kendi belgesinin CSP'sine tabi, bizimkine değil. `will-navigate`/`setWindowOpenHandler` (docs/PLAN.md §11) zaten üst çerçeveyi koruyor; iframe içinden `target=_top` ile üst pencereyi ele geçirme denemesi de bu mekanizmadan geçiyor.
+
+### İndirme pop-up'ı: ayrı bir kuyruk mantığı yok
+
+Format/kalite/albüm adı/hedef klasör formu artık her zaman görünür değil — oynatıcının altındaki **İndir** düğmesi bunu bir pop-up olarak açıyor (Ayarlar için zaten kurulmuş native Popover API + CSS anchor positioning deseninin aynısı). Form mantığı (yt-dlp probe'undan albüm adı önerisi, kuyruğa ekleme) **hiç değişmedi** — sadece nereden görüntülendiği değişti. Kuyruk (`QueueList`) hâlâ oynatıcının altında, her zaman görünür.
+
+### Gerçek bir konumlandırma hatası ve düzeltmesi
+
+İlk uygulamada pop-up, Ayarlar'daki gibi düğmenin **altına** açılıyordu. Ayarlar düğmesi pencerenin en üstünde olduğu için bu sorun çıkarmıyordu; ama İndir düğmesi artık oynatıcının **altında**, pencerenin alt kısmına yakın duruyor — pop-up aşağı açılınca çoğu zaman görünür alanın dışına taşıyordu. Uçtan uca testle ölçüldü: 668px pencere yüksekliğinde pop-up'ın alt kenarı y=901'e kadar uzuyordu.
+
+Düzeltme: `position-try-fallbacks: flip-block` — CSS Anchor Positioning ailesinin bir parçası, altta yer yoksa pop-up'ı otomatik olarak düğmenin **üstüne** çeviriyor. Bu Electron'un Chromium sürümünde çalıştığı doğrulandı (aynı düzeltme olmadan test gerçekten kırılıyor, geri konunca geçiyor — bkz. `e2e/app.spec.ts`'teki pop-up'ın pencere sınırları içinde kaldığını doğrulayan kalıcı regresyon testi). Desteklenmeyen bir Chromium sürümünde bu özellik sessizce yok sayılır (CSS'in bilinmeyen değerleri görmezden gelme kuralı) — en kötü ihtimalle eski (bazen kırpılan) davranışa döner, hiçbir şeyi bozmaz.
+
+### Doğrulama durumu
+
+Gerçek network erişimiyle uçtan uca doğrulandı: `framenavigated` olayı dinlenerek CSP'nin embed'i gerçekten yüklemesine izin verdiğini (yalnızca DOM'da `<iframe>` elemanının var olmasını değil) kanıtlayan bir test var. Ekran görüntüsüyle görsel olarak da kontrol edildi (oynatıcı, pop-up açık/kapalı halleri, karanlık tema).
+
+---
+
+## 18. Sonraki adım
 
 Bu doküman onaylandığında **Faz 0** başlar: repo iskeleti, `legacy/` taşıması ve boş ama çalışan Electron + React + Tailwind penceresi.
