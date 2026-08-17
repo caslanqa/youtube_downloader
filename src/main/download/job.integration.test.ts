@@ -31,6 +31,7 @@ describe('startJob (fake yt-dlp integration)', () => {
 
   afterEach(async () => {
     delete process.env.FAKE_YTDLP_MODE;
+    delete process.env.FAKE_RETRY_COUNTER_FILE;
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
@@ -82,6 +83,33 @@ describe('startJob (fake yt-dlp integration)', () => {
     expect(finalStatus.kind).toBe('cancelled');
     const remaining = await fs.readdir(albumDir).catch(() => []);
     expect(remaining.some((f) => f.endsWith('.part'))).toBe(false);
+  }, 10000);
+
+  it('retries automatically on a 403 and succeeds once a fresh attempt gets through', async () => {
+    process.env.FAKE_YTDLP_MODE = 'retry-then-succeed';
+    process.env.FAKE_RETRY_COUNTER_FILE = path.join(tmpDir, 'attempts');
+    const status = await new Promise<JobStatus>((resolve) => {
+      startJob('job-retry', makeRequest(tmpDir), FIXTURE, FAKE_FFMPEG, (s) => {
+        if (s.kind === 'done' || s.kind === 'error') resolve(s);
+      });
+    });
+    expect(status).toMatchObject({ kind: 'done', fileCount: 1 });
+    // Confirms this actually retried a failed attempt rather than succeeding on the first try.
+    await expect(fs.readFile(path.join(tmpDir, 'attempts'), 'utf8')).resolves.toBe('2');
+  }, 10000);
+
+  it('gives up after exhausting retries on a 403 that never clears', async () => {
+    process.env.FAKE_YTDLP_MODE = 'always-403';
+    process.env.FAKE_RETRY_COUNTER_FILE = path.join(tmpDir, 'attempts');
+    const status = await new Promise<JobStatus>((resolve) => {
+      startJob('job-persistent-403', makeRequest(tmpDir), FIXTURE, FAKE_FFMPEG, (s) => {
+        if (s.kind === 'done' || s.kind === 'error') resolve(s);
+      });
+    });
+    expect(status).toMatchObject({ kind: 'error' });
+    if (status.kind === 'error') expect(status.message).toMatch(/refused this download \(403/i);
+    // Confirms it actually retried up to the limit rather than giving up after one attempt.
+    await expect(fs.readFile(path.join(tmpDir, 'attempts'), 'utf8')).resolves.toBe('3');
   }, 10000);
 
   it('reports an error for a rejected URL without spawning yt-dlp', async () => {

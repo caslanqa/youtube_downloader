@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseProgressLine } from './job';
+import { isRetryableFailure, parseProgressLine } from './job';
 
 // The line format comes from real yt-dlp 2026.07.04 output: the `download:` part of
 // `--progress-template "download:%(progress)j"` is a type selector and is never printed.
@@ -36,5 +36,19 @@ describe('parseProgressLine', () => {
 
   it('returns null for malformed JSON', () => {
     expect(parseProgressLine('{not json')).toBeNull();
+  });
+});
+
+describe('isRetryableFailure', () => {
+  it('treats a 403 as transient', () => {
+    expect(isRetryableFailure(['ERROR: unable to download video data: HTTP Error 403: Forbidden'])).toBe(true);
+  });
+
+  it('treats a 429 as transient', () => {
+    expect(isRetryableFailure(['ERROR: HTTP Error 429: Too Many Requests'])).toBe(true);
+  });
+
+  it('does not retry a permanent failure like a private video', () => {
+    expect(isRetryableFailure(["ERROR: Private video. Sign in if you've been granted access."])).toBe(false);
   });
 });

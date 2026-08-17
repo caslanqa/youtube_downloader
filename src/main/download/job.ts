@@ -12,8 +12,16 @@ import { resolveDestination, validateUrl } from './validate';
 const STDERR_TAIL_LINES = 50;
 const CANCEL_GRACE_MS = 3000;
 
+// YouTube's per-request signed URLs are rejected intermittently, not because of the chosen
+// format: verified by hand that the identical yt-dlp command, unchanged, failed with 403 and
+// then succeeded moments later on a plain retry (a fresh process re-extracts the video and
+// gets a new signed URL). A few automatic retries resolve this far more reliably than picking
+// a "safer" format ever could, since there isn't a format that is safe on a consistent basis.
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 2000;
+
 interface RunningJob {
-  process: ChildProcess;
+  process: ChildProcess | null; // null in the gap between a failed attempt and its retry
   cancelled: boolean;
 }
 
@@ -62,6 +70,13 @@ export function parseProgressLine(line: string): ParsedProgress | null {
   }
 }
 
+/** 403/429 have been observed to be transient (see MAX_ATTEMPTS above); anything else — a
+ * private/unavailable/region-blocked/members-only video — is permanent, so retrying would only
+ * delay a message the user could otherwise act on immediately. */
+export function isRetryableFailure(stderrTail: string[]): boolean {
+  return /HTTP Error (403|429)/i.test(stderrTail.join('\n'));
+}
+
 function buildArgs(request: JobRequest, outputDir: string, ffmpegPath: string): string[] {
   return [
     ...buildFormatArgs(request.format, request.quality),
@@ -86,30 +101,24 @@ async function cleanupPartialFiles(dir: string): Promise<void> {
   );
 }
 
-export function startJob(
+interface AttemptResult {
+  code: number | null;
+  stderrTail: string[];
+}
+
+/** Runs a single yt-dlp invocation to completion and reports progress as it goes. */
+function runAttempt(
   jobId: string,
-  request: JobRequest,
   ytdlpPath: string,
-  ffmpegPath: string,
+  args: string[],
   onUpdate: (status: JobStatus) => void,
-): void {
-  let outputDir: string;
-  try {
-    validateUrl(request.url);
-    outputDir = resolveDestination(request.destination, request.albumName);
-  } catch (err) {
-    onUpdate({ kind: 'error', message: err instanceof Error ? err.message : String(err), logTail: '' });
-    return;
-  }
-
-  void (async () => {
-    await fs.mkdir(outputDir, { recursive: true });
-
-    const args = buildArgs(request, outputDir, ffmpegPath);
+): Promise<AttemptResult> {
+  return new Promise((resolve) => {
     // shell: true is NEVER used; arguments are passed as an array (docs/PLAN.md §11).
     // spawnEnv makes yt-dlp's JS runtime (deno) discoverable through PATH.
     const proc = spawn(ytdlpPath, args, { env: spawnEnv() });
-    running.set(jobId, { process: proc, cancelled: false });
+    const job = running.get(jobId);
+    if (job) job.process = proc;
 
     let lastPercent = 0;
     const stderrTail: string[] = [];
@@ -136,29 +145,69 @@ export function startJob(
     });
 
     proc.on('error', (err) => {
-      running.delete(jobId);
-      onUpdate({ kind: 'error', message: err.message, logTail: stderrTail.join('\n') });
+      stderrTail.push(err.message);
+      resolve({ code: null, stderrTail });
     });
+    proc.on('close', (code) => resolve({ code, stderrTail }));
+  });
+}
 
-    proc.on('close', (code) => {
-      void (async () => {
-        const wasCancelled = running.get(jobId)?.cancelled ?? false;
+export function startJob(
+  jobId: string,
+  request: JobRequest,
+  ytdlpPath: string,
+  ffmpegPath: string,
+  onUpdate: (status: JobStatus) => void,
+): void {
+  let outputDir: string;
+  try {
+    validateUrl(request.url);
+    outputDir = resolveDestination(request.destination, request.albumName);
+  } catch (err) {
+    onUpdate({ kind: 'error', message: err instanceof Error ? err.message : String(err), logTail: '' });
+    return;
+  }
+
+  void (async () => {
+    await fs.mkdir(outputDir, { recursive: true });
+    const args = buildArgs(request, outputDir, ffmpegPath);
+    running.set(jobId, { process: null, cancelled: false });
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      if (running.get(jobId)?.cancelled) break; // cancelled while waiting between attempts
+
+      // eslint-disable-next-line no-await-in-loop -- attempts are inherently sequential
+      const { code, stderrTail } = await runAttempt(jobId, ytdlpPath, args, onUpdate);
+      const wasCancelled = running.get(jobId)?.cancelled ?? false;
+
+      if (wasCancelled) break;
+      if (code === 0) {
         running.delete(jobId);
-        if (wasCancelled) {
-          await cleanupPartialFiles(outputDir);
-          onUpdate({ kind: 'cancelled' });
-        } else if (code === 0) {
-          const files = await fs.readdir(outputDir).catch(() => [] as string[]);
-          onUpdate({ kind: 'done', outputDir, fileCount: files.length });
-        } else {
-          onUpdate({
-            kind: 'error',
-            message: summarizeDownloadError(stderrTail, code),
-            logTail: stderrTail.join('\n'),
-          });
-        }
-      })();
-    });
+        const files = await fs.readdir(outputDir).catch(() => [] as string[]);
+        onUpdate({ kind: 'done', outputDir, fileCount: files.length });
+        return;
+      }
+
+      const willRetry = attempt < MAX_ATTEMPTS && isRetryableFailure(stderrTail);
+      // eslint-disable-next-line no-await-in-loop -- cleanup must finish before either retrying or exiting
+      await cleanupPartialFiles(outputDir);
+      if (willRetry) {
+        const job = running.get(jobId);
+        if (job) job.process = null;
+        // eslint-disable-next-line no-await-in-loop -- deliberate pause before re-extracting
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        continue;
+      }
+
+      running.delete(jobId);
+      onUpdate({ kind: 'error', message: summarizeDownloadError(stderrTail, code), logTail: stderrTail.join('\n') });
+      return;
+    }
+
+    // Only the cancellation path falls out of the loop normally; retries return or continue.
+    running.delete(jobId);
+    await cleanupPartialFiles(outputDir);
+    onUpdate({ kind: 'cancelled' });
   })();
 }
 
@@ -166,8 +215,10 @@ export function cancelJob(jobId: string): void {
   const job = running.get(jobId);
   if (!job) return;
   job.cancelled = true;
+  if (!job.process) return; // between attempts: the loop checks the flag before the next one
   job.process.kill('SIGTERM');
+  const proc = job.process;
   setTimeout(() => {
-    if (running.has(jobId)) job.process.kill('SIGKILL');
+    if (running.get(jobId)?.process === proc) proc.kill('SIGKILL');
   }, CANCEL_GRACE_MS);
 }

@@ -39,4 +39,19 @@ if (mode === 'success') {
   emit(100000, 1000000);
   fs.writeFileSync(path.join(outputDir, 'Test Video.part'), 'partial content');
   setInterval(() => {}, 1000); // wait until SIGTERM arrives
+} else if (mode === 'retry-then-succeed' || mode === 'always-403') {
+  // Each retry is a brand new process, so the attempt count is tracked in a file on disk
+  // rather than in memory (mirrors how job.ts's retry loop is really exercised: a fresh
+  // yt-dlp invocation per attempt, not a single long-lived one).
+  const counterFile = process.env.FAKE_RETRY_COUNTER_FILE;
+  const attempt = (fs.existsSync(counterFile) ? Number(fs.readFileSync(counterFile, 'utf8')) : 0) + 1;
+  fs.writeFileSync(counterFile, String(attempt));
+
+  if (mode === 'always-403' || attempt === 1) {
+    process.stderr.write('ERROR: unable to download video data: HTTP Error 403: Forbidden\n');
+    process.exit(1);
+  }
+  emit(1000000, 1000000);
+  fs.writeFileSync(path.join(outputDir, 'Test Video.mp3'), 'fake audio content');
+  process.exit(0);
 }
