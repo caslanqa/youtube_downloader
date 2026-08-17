@@ -110,6 +110,25 @@ export function SettingsPopover({
             {t('ytdlpAutoUpdateLabel')}
           </label>
         </div>
+
+        <div>
+          <label className={LABEL} htmlFor="youtube-api-key">
+            {t('youtubeApiKeyLabel')}
+          </label>
+          <input
+            id="youtube-api-key"
+            type="password"
+            autoComplete="off"
+            value={settings.youtubeApiKey}
+            onChange={(event) => onChange({ youtubeApiKey: event.target.value })}
+            placeholder={t('youtubeApiKeyPlaceholder')}
+            aria-describedby="youtube-api-key-hint"
+            className={FIELD}
+          />
+          <p id="youtube-api-key-hint" className="mt-1.5 text-xs text-muted">
+            {t('youtubeApiKeyHint')}
+          </p>
+        </div>
       </div>
     </div>
   );

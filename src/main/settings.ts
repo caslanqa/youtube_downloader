@@ -14,6 +14,7 @@ const DEFAULTS: Settings = {
   theme: 'system',
   language: 'en', // replaced by the system language on first launch (see defaults())
   ytdlpAutoUpdate: true,
+  youtubeApiKey: '',
 };
 
 /** On first launch the UI language follows the system locale; the user can change it later. */

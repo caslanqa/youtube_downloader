@@ -418,11 +418,14 @@ Davranış kuralları:
 |---|---|
 | `destination` | `~/Downloads/YTDownloader` |
 | `defaultFormat` | `mp3` |
+| `defaultQuality` | `best` |
 | `concurrency` | `2` |
 | `numberPlaylistItems` | `true` |
 | `embedMetadata` | `true` |
 | `theme` | `system` |
+| `language` | sistem diline göre |
 | `ytdlpAutoUpdate` | `true` |
+| `youtubeApiKey` | `''` (boş — arama kapalı) |
 
 ---
 
@@ -525,6 +528,47 @@ Geliştirme sırasında netleştirilecek, planı bloklamayan konular:
 
 ---
 
-## 16. Sonraki adım
+## 16. YouTube arama (Data API v3)
+
+v1'in tek yöntemi bağlantı yapıştırmaktı. Bu bölüm, kullanıcının video adıyla arayıp sonuçlar arasından seçebilmesini ekliyor.
+
+### Neden yt-dlp'nin arama modu değil, resmî API
+
+yt-dlp `ytsearch:` sözde-URL'siyle arama yapabiliyor, ama bu YouTube'un sayfa kazıma (scraping) yoluyla arama sonucu çıkarması demek — 403 araştırmasında (bkz. §6, JS runtime bölümü) gördüğümüz bot korumasına aynı şekilde takılabilir ve sonuç yapısı (küçük resim, süre, kanal adı) garantili değil. Resmî Data API v3, yapılandırılmış JSON döner ve YouTube'un kendi hız sınırlama/kota mekanizmasıyla çalışır — kırılgan değil, öngörülebilir.
+
+### Mimari: main süreçte, ham REST çağrısı
+
+`src/main/search/youtube.ts`, `binaries/manager.ts`'in GitHub API'ye yaptığı gibi doğrudan `fetch` kullanıyor; resmî `googleapis` npm paketi (tüm Google API'lerini kapsayan devasa bir SDK) iki salt-okunur GET isteği için gereksiz bir bağımlılık olurdu. API anahtarı yalnızca main süreçte tutulur ve kullanılır — renderer'a hiçbir zaman geçmez, güvenlik mimarisinin geri kalanıyla (yt-dlp/ffmpeg/deno indirmeleri de main'de) tutarlı.
+
+İki çağrı zincirlenir:
+1. `search.list?part=snippet&type=video&q=<sorgu>` — başlık, kanal adı, küçük resim.
+2. `videos.list?part=contentDetails&id=<virgüllü id listesi>` — süre (ISO 8601, `PT4M13S` biçiminde; `parseIso8601Duration` saniyeye çevirir). Tek çağrıda 50'ye kadar video ID'si toplu sorgulanabildiği için bu ikinci çağrı sonuç başına değil, arama başına yalnızca **1 birim** daha maliyet çıkarır.
+
+### Kota — tasarımı belirleyen kısıt
+
+Context7 üzerinden doğrulanan güncel rakamlar: yeni bir Google Cloud projesinin günlük kotası **10.000 birim**; `search.list` başına **100 birim** düşüyor. Yani varsayılan bir anahtarla günde **~100 arama**. Bu, iki tasarım kararını doğrudan belirledi:
+
+- **Arama yalnızca gönderimde çalışır, yazarken değil.** Debounce'lu "yazdıkça ara" (probe'un URL alanında yaptığı gibi) burada kotayı dakikalar içinde tüketirdi. Kullanıcı Enter'a basmalı veya Ara'ya tıklamalı.
+- **Aynı oturumda tekrarlanan sorgu için basit bir önbellek** (`SearchPanel` içinde `Map<sorgu, sonuçlar>`), kazara aynı aramayı iki kez göndermenin kotayı boşa harcamasını engelliyor. Sayfalama (sonraki sayfa/`nextPageToken`) bilinçli olarak eklenmedi — kotayı ilk sayfanın ötesine yaymamak için.
+
+### Sonuç seçince ne oluyor: ayrı indirme yolu yok
+
+Arama sonucu kartına tıklamak yeni bir "arama sonucundan indir" akışı başlatmıyor — yalnızca URL alanını `https://www.youtube.com/watch?v=<id>` ile dolduruyor ve moda `link`'e geri dönüyor. Bu, mevcut `useProbe` + format/kalite/albüm/hedef klasör + kuyruğa ekleme akışının **tamamını olduğu gibi yeniden kullanıyor** — arama sonuçları için ayrı bir doğrulama, format seçimi veya kuyruk mantığı yazılmadı. Bedeli: seçimden sonra yt-dlp `-J` ile bir kez daha (yerel, YouTube API kotasına dokunmayan) probe çalışıyor; kazancı: tek bir indirme yolu, tek bir test yüzeyi.
+
+### Hata sınıflandırması
+
+`errors.ts`'deki (yt-dlp stderr'i düz dile çeviren) örüntüye paralel: `youtube.ts` Google API'nin `error.errors[0].reason` alanını okuyup üç durumu ayırt ediyor — `quotaExceeded` (net "bugünkü ücretsiz kota bitti, yarın tekrar deneyin veya bağlantıyı yapıştırın" mesajı), `keyInvalid`/400/403 ("bu API anahtarı reddedildi, Ayarlar'dan kontrol edin"), ve tanınmayan durumlar için Google'ın kendi `error.message`'ı.
+
+### Ayarlar
+
+`youtubeApiKey: string` (varsayılan boş — arama tamamen isteğe bağlı, anahtar yoksa "Ayarlar'dan API anahtarı ekleyin" mesajıyla nazikçe reddediyor). Ayarlar açılır kutusunda `type="password"` alan; README'de Google Cloud Console'da anahtar alma adımları var.
+
+### Doğrulama durumu
+
+Gerçek Google API anahtarıyla test edilmedi (kullanıcının kendi anahtarını gerektiriyor, elimizde yok). Doğrulanan: Context7 dokümantasyonundan alınan gerçek yanıt biçimleriyle sahte `fetch` üzerinden 9 birim test (süre ayrıştırma, kota/anahtar hata sınıflandırması, iki çağrının birleştirilmesi); yerel bir sahte HTTP sunucusuyla uçtan uca test (arama → sonuç → seçim → mevcut link akışına geçiş, sahte yt-dlp ile probe). CSP'ye dokunulmadı — main sürecin `fetch()` çağrıları renderer'ın CSP'sinden zaten muaf (GitHub API çağrılarıyla aynı emsal, bkz. §6).
+
+---
+
+## 17. Sonraki adım
 
 Bu doküman onaylandığında **Faz 0** başlar: repo iskeleti, `legacy/` taşıması ve boş ama çalışan Electron + React + Tailwind penceresi.

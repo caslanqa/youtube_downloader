@@ -1,11 +1,12 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 import { contextBridge, ipcRenderer } from 'electron';
-import type { BinaryState, Job, JobRequest, MediaInfo, Settings } from './shared/types';
+import type { BinaryState, Job, JobRequest, MediaInfo, SearchResultItem, Settings } from './shared/types';
 
 contextBridge.exposeInMainWorld('api', {
   ensureBinaries: () => ipcRenderer.invoke('binaries:ensure') as Promise<{ ytdlpPath: string; ffmpegPath: string }>,
   probe: (url: string) => ipcRenderer.invoke('media:probe', url) as Promise<MediaInfo>,
+  searchVideos: (query: string) => ipcRenderer.invoke('search:videos', query) as Promise<SearchResultItem[]>,
   enqueue: (request: JobRequest) => ipcRenderer.invoke('job:enqueue', request) as Promise<string>,
   cancel: (jobId: string) => ipcRenderer.invoke('job:cancel', jobId) as Promise<void>,
   getSettings: () => ipcRenderer.invoke('settings:get') as Promise<Settings>,

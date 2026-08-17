@@ -13,12 +13,22 @@ const EN = {
   prepProgressLabel: '{name} download progress',
   prepFailedHint: 'Check your internet connection and restart the app.',
 
+  sourceModeLabel: 'How to find a video',
+  modeLink: 'Paste link',
+  modeSearch: 'Search YouTube',
+
   urlLabel: 'YouTube link',
   urlPlaceholder: 'https://www.youtube.com/watch?v=...',
   urlHint: 'Paste a link; you will see what it contains before downloading.',
   probing: 'Inspecting link…',
   playlistSummary: 'Playlist · {count} items',
   singleVideo: 'Single video',
+
+  searchLabel: 'Search YouTube',
+  searchPlaceholder: 'Search videos…',
+  searchButton: 'Search',
+  searching: 'Searching…',
+  searchNoResults: 'No videos found.',
 
   formatLabel: 'Format',
   formatMp3: 'MP3 (audio)',
@@ -46,6 +56,9 @@ const EN = {
   languageEn: 'English',
   numberingLabel: 'Number playlist files',
   ytdlpAutoUpdateLabel: 'Keep yt-dlp up to date automatically',
+  youtubeApiKeyLabel: 'YouTube Data API key',
+  youtubeApiKeyPlaceholder: 'Paste your API key to enable search',
+  youtubeApiKeyHint: 'Optional — only needed for the Search tab. Get a free key from Google Cloud Console (see README); the free tier allows about 100 searches a day.',
 
   queueHeading: 'Download queue',
   queueEmpty: 'The queue is empty. Add a link above to start.',
@@ -73,12 +86,22 @@ const TR: Record<keyof typeof EN, string> = {
   prepProgressLabel: '{name} indirme ilerlemesi',
   prepFailedHint: 'İnternet bağlantısını kontrol edip uygulamayı yeniden başlatın.',
 
+  sourceModeLabel: 'Video nasıl bulunsun',
+  modeLink: 'Bağlantı yapıştır',
+  modeSearch: "YouTube'da ara",
+
   urlLabel: 'YouTube bağlantısı',
   urlPlaceholder: 'https://www.youtube.com/watch?v=...',
   urlHint: 'Bağlantıyı yapıştırın; indirmeden önce içeriği burada görürsünüz.',
   probing: 'Bağlantı inceleniyor…',
   playlistSummary: 'Oynatma listesi · {count} öğe',
   singleVideo: 'Tek video',
+
+  searchLabel: "YouTube'da ara",
+  searchPlaceholder: 'Video ara…',
+  searchButton: 'Ara',
+  searching: 'Aranıyor…',
+  searchNoResults: 'Video bulunamadı.',
 
   formatLabel: 'Format',
   formatMp3: 'MP3 (ses)',
@@ -106,6 +129,9 @@ const TR: Record<keyof typeof EN, string> = {
   languageEn: 'İngilizce',
   numberingLabel: 'Oynatma listesi dosyalarını numaralandır',
   ytdlpAutoUpdateLabel: "yt-dlp'yi otomatik güncel tut",
+  youtubeApiKeyLabel: 'YouTube Data API anahtarı',
+  youtubeApiKeyPlaceholder: 'Aramayı açmak için API anahtarınızı yapıştırın',
+  youtubeApiKeyHint: "İsteğe bağlı — yalnızca Ara sekmesi için gerekir. Google Cloud Console'dan ücretsiz bir anahtar alın (bkz. README); ücretsiz kota günde yaklaşık 100 arama.",
 
   queueHeading: 'İndirme kuyruğu',
   queueEmpty: 'Kuyruk boş. Yukarıya bir bağlantı ekleyerek başlayın.',

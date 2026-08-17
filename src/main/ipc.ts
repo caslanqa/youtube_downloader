@@ -5,6 +5,7 @@ import path from 'node:path';
 import { ensureBinaries } from './binaries/manager';
 import { probeUrl } from './download/probe';
 import { cancel as cancelJob, configureQueue, enqueue as enqueueJob, setConcurrency } from './download/queue';
+import { searchVideos } from './search/youtube';
 import { getSettings, setSettings } from './settings';
 import type { BinaryState, Job, JobRequest, Settings } from '../shared/types';
 
@@ -46,6 +47,8 @@ export function registerIpc(mainWindow: BrowserWindow): void {
   });
 
   ipcMain.handle('media:probe', (_e, url: string) => probeUrl(url, requireBinaries().ytdlpPath));
+
+  ipcMain.handle('search:videos', (_e, query: string) => searchVideos(getSettings().youtubeApiKey, query));
 
   ipcMain.handle('job:enqueue', (_e, request: JobRequest) => {
     requireBinaries();

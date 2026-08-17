@@ -17,6 +17,8 @@ Runs on macOS, Windows and Linux. Built with Electron, React and TypeScript.
 - [First launch](#first-launch)
 - [Usage](#usage)
   - [Download form](#download-form)
+  - [Searching YouTube](#searching-youtube)
+    - [Enabling search](#enabling-search)
   - [Queue](#queue)
   - [Settings](#settings)
 - [Where files end up](#where-files-end-up)
@@ -44,6 +46,8 @@ Runs on macOS, Windows and Linux. Built with Electron, React and TypeScript.
 
 - **Formats**: MP3 (audio), MP4 and WebM (video), including playlists.
 - **Preview before download**: pasting a link shows the title, duration and playlist size.
+- **Search YouTube**: find a video by name instead of pasting a link (needs a free YouTube Data
+  API key you provide yourself — see [Enabling search](#enabling-search)).
 - **Real progress**: percentage, speed and ETA parsed from yt-dlp's structured output.
 - **Queue**: add several links without waiting; two downloads run at a time by default.
 - **Cancellable**: a running download stops on request and its partial files are cleaned up.
@@ -128,6 +132,38 @@ copy is already on disk.
    selection is remembered for the next download.
 5. **Add to queue.** The form clears immediately so the next link can be entered.
 
+### Searching YouTube
+
+Instead of pasting a link, switch to the **Search YouTube** tab, type a video name and press
+**Search** (or Enter). Search only runs when you submit it — never as you type — because the
+YouTube Data API's free tier allows roughly 100 searches a day (see
+[Enabling search](#enabling-search) below); a live-search-as-you-type box would burn through
+that in minutes. Repeating the same search within the same session reuses the earlier result
+instead of spending quota again.
+
+Clicking a result does not download it directly — it fills in the link field and switches back
+to **Paste link**, so the exact same preview, format/quality, album name and destination
+controls apply to it as to any pasted link. There is no separate "download from search" code
+path to keep in sync with the regular one.
+
+#### Enabling search
+
+Search is optional and off by default; without a key the tab still works, it just tells you to
+add one. To get a free API key:
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/) and create a project (or
+   pick an existing one).
+2. Go to **APIs & Services → Library**, search for **YouTube Data API v3**, and enable it.
+3. Go to **APIs & Services → Credentials → Create Credentials → API key**.
+4. Optionally restrict the key: under **API restrictions**, limit it to *YouTube Data API v3*
+   so it can't be used for anything else if it ever leaks.
+5. Paste the key into **Settings → YouTube Data API key** in the app.
+
+The free tier's default quota is 10,000 units/day, and a search costs 100 units — about 100
+searches a day. Google's Cloud Console shows current usage under **APIs & Services → YouTube
+Data API v3 → Quotas**. There is no cost unless you explicitly request a quota increase and
+attach billing; a plain search-only key stays free.
+
 ### Queue
 
 Each job shows its own state: waiting, downloading (with percentage, speed and remaining time),
@@ -147,6 +183,8 @@ The gear button in the top right opens the settings popover:
 | Theme | Match system | Light or dark can be pinned |
 | Concurrent downloads | 2 | 1–5; extra jobs wait in the queue |
 | Number playlist files | On | Prefixes files with the playlist index |
+| Keep yt-dlp up to date | On | Checks for a newer yt-dlp release on every launch |
+| YouTube Data API key | Empty | Enables the Search tab; see [Enabling search](#enabling-search) |
 
 Settings are stored as JSON in the app's user-data directory:
 
@@ -453,6 +491,15 @@ challenges. Check whether `deno` exists in the app's `bin/` directory.
 **macOS refuses to open the app, or says it is damaged.**
 The installers are unsigned; "damaged" is the quarantine attribute rather than a broken
 download. See [Opening an unsigned build](#opening-an-unsigned-build).
+
+**Search says "You've used today's free YouTube search quota."**
+The YouTube Data API's free tier allows about 100 searches a day per key (see
+[Enabling search](#enabling-search)); this resets the next day. Paste the video link directly
+in the meantime — downloading never uses this quota, only searching does.
+
+**Search says the API key was rejected.**
+Double check the key was copied in full with no extra spaces, and that **YouTube Data API v3**
+is enabled for the Google Cloud project it belongs to (**APIs & Services → Library**).
 
 ## Licenses
 

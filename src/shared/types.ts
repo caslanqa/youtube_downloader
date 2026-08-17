@@ -13,6 +13,15 @@ export type Format = 'mp3' | 'mp4' | 'webm';
 // Ignored for the 'mp3' format, which is always audio-only regardless of the selected value.
 export type VideoQuality = 'best' | '2160' | '1440' | '1080' | '720' | '480' | '360';
 
+export interface SearchResultItem {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  thumbnail?: string;
+  /** Seconds; undefined for content the API reports with a non-standard duration (e.g. a live stream). */
+  duration?: number;
+}
+
 export interface MediaInfo {
   id: string;
   title: string;
@@ -59,4 +68,6 @@ export interface Settings {
   theme: 'system' | 'light' | 'dark';
   language: Language;
   ytdlpAutoUpdate: boolean;
+  /** Empty disables search entirely; get one from console.cloud.google.com (see README). */
+  youtubeApiKey: string;
 }

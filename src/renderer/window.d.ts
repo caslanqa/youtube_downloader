@@ -1,10 +1,11 @@
-import type { BinaryState, Job, JobRequest, MediaInfo, Settings } from '../shared/types';
+import type { BinaryState, Job, JobRequest, MediaInfo, SearchResultItem, Settings } from '../shared/types';
 
 declare global {
   interface Window {
     api: {
       ensureBinaries: () => Promise<{ ytdlpPath: string; ffmpegPath: string }>;
       probe: (url: string) => Promise<MediaInfo>;
+      searchVideos: (query: string) => Promise<SearchResultItem[]>;
       enqueue: (request: JobRequest) => Promise<string>;
       cancel: (jobId: string) => Promise<void>;
       getSettings: () => Promise<Settings>;
