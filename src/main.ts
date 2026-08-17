@@ -1,7 +1,53 @@
 import { app, BrowserWindow, session, shell } from 'electron';
+import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { registerIpc } from './main/ipc';
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.woff2': 'font/woff2',
+};
+
+/**
+ * Serves the packaged renderer over http://127.0.0.1 instead of loading it as a file:// page.
+ * YouTube's embedded player outright rejects a file:// parent origin — "Error 153: Video
+ * player configuration error" — a widely-reported limitation, not something particular to this
+ * app. Confirmed by isolating the one variable in a standalone repro: the exact same embed URL
+ * loaded and played fine from a bare local http:// page and failed only from file://. Binding
+ * to loopback only and picking an OS-assigned port keeps this unreachable outside the machine;
+ * it serves nothing but this app's own already-public bundled assets, so no auth is needed.
+ */
+function serveRendererDirectory(rootDir: string): Promise<string> {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      const requestedPath = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
+      const filePath = path.join(rootDir, requestedPath === '/' ? 'index.html' : requestedPath);
+      if (!filePath.startsWith(rootDir)) {
+        res.writeHead(403).end();
+        return;
+      }
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          res.writeHead(404).end();
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': MIME_TYPES[path.extname(filePath)] ?? 'application/octet-stream' });
+        res.end(data);
+      });
+    });
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      resolve(`http://127.0.0.1:${port}`);
+    });
+  });
+}
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -35,6 +81,15 @@ function contentSecurityPolicy(): string {
 
 function applySecurityPolicies(): void {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    // onHeadersReceived fires for every request in this session, including everything the
+    // YouTube player <iframe> loads on its own (its scripts, fonts, XHRs) since it shares this
+    // session. Only the app's own top-level document should get this header — applying it
+    // session-wide silently broke the embedded player by overwriting YouTube's own CSP with
+    // ours in its place, which blocked its inline scripts and fonts and left it a black box.
+    if (details.resourceType !== 'mainFrame') {
+      callback({});
+      return;
+    }
     callback({
       responseHeaders: {
         ...details.responseHeaders,
@@ -57,7 +112,7 @@ function restrictNavigation(window: BrowserWindow): void {
   });
 }
 
-const createWindow = () => {
+const createWindow = async () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 900,
@@ -78,9 +133,9 @@ const createWindow = () => {
     // Open the DevTools only in development.
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-    );
+    const rendererDir = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`);
+    const origin = await serveRendererDirectory(rendererDir);
+    mainWindow.loadURL(`${origin}/index.html`);
   }
 
   restrictNavigation(mainWindow);
@@ -92,7 +147,7 @@ const createWindow = () => {
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
   applySecurityPolicies();
-  createWindow();
+  void createWindow();
 });
 
 // Closing the window quits the app on every platform, including macOS: this is a small
